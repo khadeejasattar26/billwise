@@ -12,7 +12,7 @@ from typing import Any
 import openai
 
 from .llm import ANSWER_SYSTEM, EXPLAIN_SYSTEM, EXTRACT_SYSTEM, LLMError, answer_prompt, explain_facts
-from .schemas import BillFields, Comparison, Explanation
+from .schemas import BillFields, Comparison, Explanation, Insight
 
 log = logging.getLogger(__name__)
 
@@ -71,11 +71,13 @@ class OpenAILLM:
 
     # ---- free text -------------------------------------------------------------------
 
-    def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> Explanation:
-        return self._structured(EXPLAIN_SYSTEM, f"Facts:\n{explain_facts(fields, comparison, warnings)}", Explanation)
+    def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str],
+                insights: list[Insight] = ()) -> Explanation:
+        facts = explain_facts(fields, comparison, warnings, insights)
+        return self._structured(EXPLAIN_SYSTEM, f"Facts:\n{facts}", Explanation)
 
-    def answer(self, question: str, history: list[dict[str, Any]]) -> str:
-        return self._text(ANSWER_SYSTEM, answer_prompt(question, history))
+    def answer(self, question: str, history: list[dict[str, Any]], focus: dict[str, Any] | None = None) -> str:
+        return self._text(ANSWER_SYSTEM, answer_prompt(question, history, focus))
 
     def _text(self, system: str, prompt: str) -> str:
         client = self.client

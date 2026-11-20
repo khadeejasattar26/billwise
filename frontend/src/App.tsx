@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { ApiError, askAboutBill, listBills, uploadBill, type Bill, type BillFields, type Comparison, type UploadResult } from './api'
-import { STRINGS, formatDate, formatNumber, type Lang, type Strings } from './i18n'
+import { ApiError, askAboutBill, fetchSpeech, listBills, uploadBill, type Bill, type BillFields, type Comparison, type Insight, type UploadResult } from './api'
+import { STRINGS, discoName, formatDate, formatNumber, insightText, type Lang, type Strings } from './i18n'
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
 
 const LANG_KEY = 'billwise-lang'
 const AC_KW = 1.5 // a 1.5-ton split AC draws roughly 1.5 kW
+const PROTECTED_LIMIT = 200 // units per month (NEPRA protected-consumer limit)
 const focusRing = 'focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-amber-500'
 
 function savedLang(): Lang {
@@ -123,8 +124,17 @@ function ErrorPanel({ error, t, lang }: { error: ApiError; t: Strings; lang: Lan
 function Result({ result, history, lang, t }: { result: UploadResult; history: Bill[]; lang: Lang; t: Strings }) {
   const { bill, fields, comparison } = result
   const explanation = lang === 'ur' && bill.explanation_ur ? bill.explanation_ur : bill.explanation
+  const company = discoName(fields.disco, lang)
+  const technical = `${bill.extraction_mode === 'vision' ? t.readVision : t.readOcr} ${t.attempts(result.attempts)}.`
+    + (result.reminder_scheduled ? ` ${t.reminderOn}` : '')
   return (
     <div className="space-y-8">
+      {company && (
+        <p className="text-base text-slate-600">
+          {t.issuedBy}: <span className="font-semibold text-slate-900">{company}</span>
+        </p>
+      )}
+
       {bill.warnings.length > 0 && (
         <div role="alert" className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-5 text-amber-900">
           <p className="font-bold">{t.warningsTitle}</p>
@@ -151,16 +161,13 @@ function Result({ result, history, lang, t }: { result: UploadResult; history: B
         <p className="text-xl sm:text-2xl">{explanation}</p>
       </section>
 
+      <ChargesCard fields={fields} lang={lang} t={t} />
+      <WhyCard insights={result.insights} printed={comparison?.source === 'printed'} lang={lang} t={t} />
       <PerUnit result={result} t={t} />
       <WhatIsAUnit comparison={comparison} t={t} />
-      <AmountChart bills={history} currentId={bill.id} lang={lang} t={t} />
+      <UnitsChart fields={fields} bills={history} currentId={bill.id} lang={lang} t={t} />
       <AskBox billId={bill.id} t={t} />
-      <BillDetails fields={fields} warnings={bill.warnings} lang={lang} t={t} />
-
-      <p className="text-base text-slate-600">
-        {bill.extraction_mode === 'vision' ? t.readVision : t.readOcr} {t.attempts(result.attempts)}.{' '}
-        {result.reminder_scheduled ? t.reminderOn : t.reminderOff}
-      </p>
+      <BillDetails fields={fields} warnings={bill.warnings} technical={technical} lang={lang} t={t} />
     </div>
   )
 }
@@ -188,40 +195,51 @@ function Change({ diff, t, format }: { diff: number | undefined; t: Strings; for
 }
 
 function ListenButton({ text, lang, t }: { text: string; lang: Lang; t: Strings }) {
-  const [speaking, setSpeaking] = useState(false)
-  const [noVoice, setNoVoice] = useState(false)
-  const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
+  // Audio comes from the server (Pakistani Urdu neural voice), so it works on any phone or browser.
+  // If the server can't make audio, fall back to the device's own voice when it has one.
+  const [state, setState] = useState<'idle' | 'loading' | 'playing' | 'failed'>('idle')
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Stop reading when the button goes away. The parent keys it on text + language,
-  // so switching language also remounts it with fresh state.
   useEffect(() => {
     return () => {
-      if (supported) window.speechSynthesis.cancel()
+      audioRef.current?.pause()
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     }
-  }, [supported])
+  }, [])
 
-  if (!supported) return null
-
-  function toggle() {
-    const synth = window.speechSynthesis
-    if (speaking) {
-      synth.cancel()
-      setSpeaking(false)
-      return
-    }
-    const voice = synth.getVoices().find((v) => v.lang.toLowerCase().startsWith(lang))
-    if (!voice) {
-      setNoVoice(true)
-      return
-    }
+  function speakWithDevice(): boolean {
+    if (!('speechSynthesis' in window)) return false
+    const voice = window.speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith(lang))
+    if (!voice) return false
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.voice = voice
     utterance.lang = voice.lang
-    utterance.rate = 0.9 // a little slower than normal, easier to follow
-    utterance.onend = () => setSpeaking(false)
-    utterance.onerror = () => setSpeaking(false)
-    synth.speak(utterance)
-    setSpeaking(true)
+    utterance.rate = 0.9
+    utterance.onend = () => setState('idle')
+    window.speechSynthesis.speak(utterance)
+    return true
+  }
+
+  async function toggle() {
+    if (state === 'playing') {
+      audioRef.current?.pause()
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+      setState('idle')
+      return
+    }
+    setState('loading')
+    try {
+      if (!audioRef.current) {
+        const audio = new Audio(URL.createObjectURL(await fetchSpeech(text, lang)))
+        audio.onended = () => setState('idle')
+        audioRef.current = audio
+      }
+      audioRef.current.currentTime = 0
+      await audioRef.current.play()
+      setState('playing')
+    } catch {
+      setState(speakWithDevice() ? 'playing' : 'failed')
+    }
   }
 
   return (
@@ -229,13 +247,69 @@ function ListenButton({ text, lang, t }: { text: string; lang: Lang; t: Strings 
       <button
         type="button"
         onClick={toggle}
-        aria-pressed={speaking}
-        className={`rounded-full bg-emerald-700 px-5 py-2 text-lg font-semibold text-white hover:bg-emerald-800 ${focusRing}`}
+        disabled={state === 'loading'}
+        aria-pressed={state === 'playing'}
+        className={`rounded-full bg-emerald-700 px-5 py-2 text-lg font-semibold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-70 ${focusRing}`}
       >
-        {speaking ? t.stop : t.listen}
+        {state === 'playing' ? t.stop : state === 'loading' ? t.listenLoading : t.listen}
       </button>
-      {noVoice && <p role="status" className="mt-2 max-w-xs text-base text-slate-700">{t.noVoice}</p>}
+      {state === 'failed' && <p role="status" className="mt-2 max-w-xs text-base text-slate-700">{t.listenFailed}</p>}
     </div>
+  )
+}
+
+function ChargesCard({ fields, lang, t }: { fields: BillFields; lang: Lang; t: Strings }) {
+  // Only worth showing when the bill has more than one part (e.g. this month + unpaid arrears).
+  const parts: [string, number][] = []
+  if (fields.current_bill) parts.push([t.chargeCurrent, fields.current_bill])
+  if (fields.arrears) parts.push([t.chargeArrears, fields.arrears])
+  if (fields.fpa) parts.push([t.chargeFpa, fields.fpa])
+  if (parts.length < 2 || !fields.amount) return null
+  const other = fields.amount - parts.reduce((sum, [, value]) => sum + value, 0)
+  if (Math.abs(other) >= 1) parts.push([t.chargeOther, other])
+  const money = (n: number) => t.rupees(formatNumber(n))
+  return (
+    <section aria-labelledby="charges-h" className="rounded-2xl border-2 border-slate-200 p-5">
+      <h2 id="charges-h" className="mb-3 text-2xl font-bold">{t.chargesTitle}</h2>
+      <table className="w-full">
+        <tbody>
+          {parts.map(([label, value]) => (
+            <tr key={label} className="border-b border-slate-200">
+              <th scope="row" className="py-2 pe-4 text-start font-medium">{label}</th>
+              <td className="whitespace-nowrap py-2 text-end font-semibold">{money(value)}</td>
+            </tr>
+          ))}
+          <tr>
+            <th scope="row" className="pt-3 text-start text-xl font-bold">{t.chargeTotal}</th>
+            <td className="whitespace-nowrap pt-3 text-end text-xl font-bold">{money(fields.amount)}</td>
+          </tr>
+        </tbody>
+      </table>
+      {fields.payable_after_due && <p className="mt-2 text-base text-slate-600">{t.afterDue(money(fields.payable_after_due))}</p>}
+      <span className="sr-only" lang={lang} />
+    </section>
+  )
+}
+
+function WhyCard({ insights, printed, lang, t }: { insights: Insight[]; printed: boolean; lang: Lang; t: Strings }) {
+  const sentences = insights
+    .map((i) => ({ code: i.code, text: insightText(i.code, i.values, lang) }))
+    .filter((s): s is { code: string; text: string } => s.text !== null)
+  if (sentences.length === 0) return null
+  const important = new Set(['arrears', 'unprotected_because', 'unprotected', 'over_limit'])
+  return (
+    <section aria-labelledby="why-h" className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5">
+      <h2 id="why-h" className="mb-3 text-2xl font-bold">{t.whyTitle}</h2>
+      <ul className="space-y-3">
+        {sentences.map((s) => (
+          <li key={s.code} className={`flex gap-3 ${important.has(s.code) ? 'font-semibold' : ''}`}>
+            <span aria-hidden="true">{important.has(s.code) ? '⚠️' : '•'}</span>
+            <span>{s.text}</span>
+          </li>
+        ))}
+      </ul>
+      {printed && <p className="mt-3 text-base text-slate-600">{t.whyFromPrinted}</p>}
+    </section>
   )
 }
 
@@ -269,32 +343,58 @@ function WhatIsAUnit({ comparison, t }: { comparison: Comparison | null; t: Stri
   )
 }
 
-function AmountChart({ bills, currentId, lang, t }: { bills: Bill[]; currentId: number; lang: Lang; t: Strings }) {
-  if (bills.length === 0) return null
-  const max = Math.max(...bills.map((b) => b.amount))
+function monthName(iso: string, lang: Lang): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString(lang === 'ur' ? 'ur-PK' : 'en-GB', { month: lang === 'ur' ? 'long' : 'short' })
+}
+
+function UnitsChart({ fields, bills, currentId, lang, t }: { fields: BillFields; bills: Bill[]; currentId: number; lang: Lang; t: Strings }) {
+  // Prefer the 12-month history printed on the bill; otherwise use bills uploaded to BillWise.
+  // Geometry: 16rem chart = 2.5rem month label + 0.25rem gap + 1.5rem top padding + 11.75rem of bar space.
+  type Point = { key: string; month: string; units: number; current: boolean }
+  let points: Point[]
+  const printed = fields.history.filter((r) => r.units !== null && r.month !== fields.billing_month)
+  if (printed.length >= 2 && fields.billing_month && fields.units !== null) {
+    points = [...printed]
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .map((r) => ({ key: r.month, month: r.month, units: r.units as number, current: false }))
+    points.push({ key: fields.billing_month, month: fields.billing_month, units: fields.units, current: true })
+  } else {
+    points = bills.map((b) => ({ key: String(b.id), month: b.billing_month, units: b.units, current: b.id === currentId }))
+  }
+  if (points.length === 0) return null
+  const top = Math.max(PROTECTED_LIMIT * 1.15, ...points.map((p) => p.units))
+  const limitPct = (PROTECTED_LIMIT / top) * 100
   return (
     <section aria-labelledby="chart-h">
       <h2 id="chart-h" className="mb-3 text-2xl font-bold">{t.chartTitle}</h2>
-      {bills.length === 1 && <p className="mb-2 text-base text-slate-600">{t.chartOne}</p>}
+      {points.length === 1 && <p className="mb-2 text-base text-slate-600">{t.chartOne}</p>}
       {/* Months read left to right as on a calendar, even on the Urdu page. */}
-      <ul dir="ltr" className="flex h-64 items-end gap-4 rounded-2xl border-2 border-slate-200 p-4" aria-label={t.chartLabel}>
-        {bills.map((b) => (
-          <li key={b.id} className="flex h-full flex-1 flex-col items-center gap-1">
-            {/* The bar area alone sets the 100% height, so labels never squeeze the bars. */}
-            <div className="flex min-h-0 w-full flex-1 items-end justify-center pt-7">
-              <div
-                className={`relative w-full max-w-20 rounded-t-lg ${b.id === currentId ? 'bg-emerald-600' : 'bg-slate-400'}`}
-                style={{ height: `${Math.max(4, (b.amount / max) * 100)}%` }}
-              >
-                <span className="latin absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-base font-bold">
-                  {formatNumber(b.amount)}
+      <div dir="ltr" className="rounded-2xl border-2 border-slate-200 p-3 sm:p-4">
+        <div className="relative h-64">
+          <div className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-red-500" style={{ bottom: `calc(2.75rem + ${limitPct / 100} * 11.75rem)` }} />
+          <ul className="flex h-full items-end gap-1 sm:gap-2" aria-label={t.chartLabel}>
+            {points.map((p, i) => (
+              <li key={p.key} className="flex h-full min-w-0 flex-1 flex-col items-center gap-1">
+                <div className="flex min-h-0 w-full flex-1 items-end justify-center pt-6">
+                  <div
+                    className={`relative w-full max-w-12 rounded-t ${p.current ? 'bg-emerald-600' : p.units > PROTECTED_LIMIT ? 'bg-red-400' : 'bg-slate-400'}`}
+                    style={{ height: `${Math.max(3, (p.units / top) * 100)}%` }}
+                  >
+                    <span className="latin absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold sm:text-sm">{p.units}</span>
+                  </div>
+                </div>
+                <span lang={lang} className="flex h-10 w-full flex-col items-center overflow-hidden text-center text-[11px] leading-tight text-slate-700 sm:text-xs">
+                  <span className="max-w-full truncate">{monthName(p.month, lang)}</span>
+                  {(i === 0 || p.month.slice(5, 7) === '01') && <span className="latin text-slate-500">{p.month.slice(0, 4)}</span>}
                 </span>
-              </div>
-            </div>
-            <span lang={lang} className="text-base text-slate-700">{formatDate(b.billing_month, lang, false)}</span>
-          </li>
-        ))}
-      </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="mt-2 flex items-center gap-2 text-sm text-red-700" dir={lang === 'ur' ? 'rtl' : 'ltr'}>
+          <span aria-hidden="true" className="inline-block w-6 border-t-2 border-dashed border-red-500" /> {t.chartLimit}
+        </p>
+      </div>
     </section>
   )
 }
@@ -354,15 +454,16 @@ function AskBox({ billId, t }: { billId: number; t: Strings }) {
   )
 }
 
-function BillDetails({ fields, warnings, lang, t }: { fields: BillFields; warnings: string[]; lang: Lang; t: Strings }) {
-  const warnWords: Record<keyof BillFields, string> = {
+function BillDetails({ fields, warnings, technical, lang, t }: { fields: BillFields; warnings: string[]; technical: string; lang: Lang; t: Strings }) {
+  type CoreField = 'account_no' | 'billing_month' | 'previous_reading' | 'current_reading' | 'units' | 'amount' | 'due_date'
+  const warnWords: Record<CoreField, string> = {
     account_no: 'account no', billing_month: 'billing month', previous_reading: 'readings',
     current_reading: 'readings', units: 'units', amount: 'amount', due_date: 'due date',
   }
-  const keys = Object.keys(warnWords) as (keyof BillFields)[]
-  const flagged = (key: keyof BillFields) => warnings.some((w) => w.toLowerCase().includes(warnWords[key]))
+  const keys = Object.keys(warnWords) as CoreField[]
+  const flagged = (key: CoreField) => warnings.some((w) => w.toLowerCase().includes(warnWords[key]))
 
-  function show(key: keyof BillFields): string {
+  function show(key: CoreField): string {
     const value = fields[key]
     if (value === null || value === '') return '—'
     if (key === 'billing_month') return formatDate(String(value), lang, false)
@@ -386,6 +487,7 @@ function BillDetails({ fields, warnings, lang, t }: { fields: BillFields; warnin
           ))}
         </tbody>
       </table>
+      <p className="mt-3 text-base text-slate-500">{t.technical}: {technical}</p>
     </details>
   )
 }

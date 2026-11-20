@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS bills (
   due_date         DATE        NOT NULL,
   explanation      TEXT        NOT NULL,
   explanation_ur   TEXT        NOT NULL DEFAULT '',
+  -- disco, category, charges, printed bill history and computed reasons
+  details          JSONB       NOT NULL DEFAULT '{}',
   warnings         TEXT[]      NOT NULL DEFAULT '{}',
   extraction_mode  TEXT        NOT NULL CHECK (extraction_mode IN ('ocr', 'vision')),
   ocr_text         TEXT        NOT NULL,

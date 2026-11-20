@@ -29,7 +29,19 @@ const ur = {
   plainWords: 'آسان الفاظ میں',
   listen: '🔊 سنیں',
   stop: '⏹ روکیں',
-  noVoice: 'اس فون یا براؤزر میں اردو آواز موجود نہیں۔ English منتخب کر کے سن سکتے ہیں۔',
+  issuedBy: 'بل جاری کرنے والی کمپنی',
+  chargesTitle: 'آپ کا بل کس چیز سے بنا ہے؟',
+  chargeCurrent: 'اس مہینے کی بجلی (موجودہ بل)',
+  chargeArrears: 'پچھلا بقایا (جو ادا نہیں ہوا)',
+  chargeFpa: 'فیول ایڈجسٹمنٹ (FPA)',
+  chargeOther: 'دیگر ایڈجسٹمنٹ',
+  chargeTotal: 'کل رقم',
+  afterDue: (amount: string) => `مقررہ تاریخ کے بعد: ${amount}`,
+  whyTitle: 'آپ کا بل ایسا کیوں ہے؟',
+  whyFromPrinted: 'پچھلے مہینوں کا موازنہ بل پر چھپی تاریخ (Bill History) سے کیا گیا ہے۔',
+  listenLoading: '⏳ آواز تیار ہو رہی ہے…',
+  listenFailed: 'آواز نہیں چل سکی۔ انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔',
+  technical: 'تکنیکی معلومات',
   perUnitTitle: 'ایک یونٹ کتنے کا پڑا؟',
   perUnitNow: (x: string) => `اس مہینے اوسطاً ${x} روپے فی یونٹ`,
   perUnitBefore: (x: string) => `پچھلے مہینے ${x} روپے فی یونٹ`,
@@ -43,9 +55,10 @@ const ur = {
   extraUnits: (n: string, h: string) => `اس مہینے کے ${n} اضافی یونٹ اتنی بجلی ہیں جتنی ڈیڑھ ٹن کا AC تقریباً ${h} گھنٹے چلانے میں لگتی ہے۔`,
   fewerUnits: (n: string) => `اس مہینے آپ نے پچھلے مہینے سے ${n} یونٹ کم استعمال کیے۔`,
   approxNote: 'یہ اندازے ہیں؛ اصل استعمال آپ کے آلات پر منحصر ہے۔',
-  chartTitle: 'ہر مہینے کا بل',
-  chartLabel: 'ہر مہینے کی رقم',
+  chartTitle: 'ہر مہینے کے یونٹ',
+  chartLabel: 'ہر مہینے کے استعمال شدہ یونٹ',
   chartOne: 'موازنے کے لیے اگلے مہینے کا بل بھی اپ لوڈ کریں۔',
+  chartLimit: '200 یونٹ کی حد: اس سے اوپر جانے پر ریٹ بڑھ جاتا ہے',
   askTitle: 'اپنے بل کے بارے میں پوچھیں',
   askPlaceholder: 'میرا بل کیوں بڑھا؟',
   askLabel: 'آپ کا سوال',
@@ -74,6 +87,7 @@ const ur = {
     unreadable_image: 'یہ تصویر کھل نہیں سکی۔ دوسری تصویر آزمائیں۔',
     fields_not_found: 'بل کی ضروری معلومات نہیں پڑھی جا سکیں۔ بل کی صاف اور سیدھی تصویر لیں۔',
     llm_error: 'AI سروس نے جواب نہیں دیا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+    speech_failed: 'آواز نہیں چل سکی۔ دوبارہ کوشش کریں۔',
     network_error: 'سرور سے رابطہ نہیں ہو سکا۔ کیا بیک اینڈ چل رہا ہے؟',
     default: 'کچھ غلط ہو گیا۔ دوبارہ کوشش کریں۔',
   } as Record<string, string>,
@@ -105,7 +119,19 @@ const en: Strings = {
   plainWords: 'In plain words',
   listen: '🔊 Listen',
   stop: '⏹ Stop',
-  noVoice: 'This phone or browser has no voice for this language.',
+  issuedBy: 'Issued by',
+  chargesTitle: 'What makes up your bill?',
+  chargeCurrent: "This month's electricity (current bill)",
+  chargeArrears: 'Unpaid from earlier bills (arrears)',
+  chargeFpa: 'Fuel price adjustment (FPA)',
+  chargeOther: 'Other adjustments',
+  chargeTotal: 'Total',
+  afterDue: (amount) => `After the due date: ${amount}`,
+  whyTitle: 'Why is your bill this amount?',
+  whyFromPrinted: "Earlier months come from the Bill History printed on your bill.",
+  listenLoading: '⏳ Preparing audio…',
+  listenFailed: 'Could not play the audio. Check the internet and try again.',
+  technical: 'Technical details',
   perUnitTitle: 'What did one unit cost?',
   perUnitNow: (x) => `This month: Rs ${x} per unit on average`,
   perUnitBefore: (x) => `Last month: Rs ${x} per unit`,
@@ -119,9 +145,10 @@ const en: Strings = {
   extraUnits: (n, h) => `This month's ${n} extra units are about as much electricity as running a 1.5-ton AC for ${h} hours.`,
   fewerUnits: (n) => `This month you used ${n} fewer units than last month.`,
   approxNote: 'These are estimates; real use depends on your appliances.',
-  chartTitle: 'Bill by month',
-  chartLabel: 'Bill amount per month',
+  chartTitle: 'Units by month',
+  chartLabel: 'Units used per month',
   chartOne: "Upload next month's bill to see a comparison.",
+  chartLimit: '200-unit limit: above it, rates go up',
   askTitle: 'Ask about your bill',
   askPlaceholder: 'Why did my bill go up?',
   askLabel: 'Your question',
@@ -163,4 +190,95 @@ export function formatDate(iso: string, lang: Lang, withDay = true, short = fals
     ? { day: 'numeric', month, year: 'numeric' }
     : { month, year: 'numeric' }
   return new Date(iso + 'T00:00:00').toLocaleDateString(LOCALE[lang], options)
+}
+
+// ---- Companies that issue electricity bills in Pakistan ----------------------------------------
+// The 11 government-owned DISCOs share the PITC bill format; K-Electric (Karachi) is private.
+export const DISCOS: Record<string, { ur: string; en: string }> = {
+  LESCO: { ur: 'لاہور الیکٹرک سپلائی کمپنی', en: 'Lahore Electric Supply Company' },
+  IESCO: { ur: 'اسلام آباد الیکٹرک سپلائی کمپنی', en: 'Islamabad Electric Supply Company' },
+  FESCO: { ur: 'فیصل آباد الیکٹرک سپلائی کمپنی', en: 'Faisalabad Electric Supply Company' },
+  GEPCO: { ur: 'گوجرانوالہ الیکٹرک پاور کمپنی', en: 'Gujranwala Electric Power Company' },
+  MEPCO: { ur: 'ملتان الیکٹرک پاور کمپنی', en: 'Multan Electric Power Company' },
+  PESCO: { ur: 'پشاور الیکٹرک سپلائی کمپنی', en: 'Peshawar Electric Supply Company' },
+  HAZECO: { ur: 'ہزارہ الیکٹرک سپلائی کمپنی', en: 'Hazara Electric Supply Company' },
+  TESCO: { ur: 'ٹرائبل ایریاز الیکٹرک سپلائی کمپنی', en: 'Tribal Areas Electricity Supply Company' },
+  HESCO: { ur: 'حیدرآباد الیکٹرک سپلائی کمپنی', en: 'Hyderabad Electric Supply Company' },
+  SEPCO: { ur: 'سکھر الیکٹرک پاور کمپنی', en: 'Sukkur Electric Power Company' },
+  QESCO: { ur: 'کوئٹہ الیکٹرک سپلائی کمپنی', en: 'Quetta Electric Supply Company' },
+  'K-ELECTRIC': { ur: 'کے الیکٹرک (کراچی)', en: 'K-Electric (Karachi)' },
+}
+
+export function discoName(disco: string | null, lang: Lang): string | null {
+  if (!disco) return null
+  const key = disco.toUpperCase().replace(/\s+/g, '').replace('KELECTRIC', 'K-ELECTRIC')
+  const known = DISCOS[key]
+  return known ? `${disco.toUpperCase()} · ${known[lang]}` : disco
+}
+
+// ---- Reasons ("insights") computed by the backend, as fixed sentences -----------------------------
+
+type Values = Record<string, number | string>
+
+function num(v: Values, key: string): number {
+  return Number(v[key])
+}
+
+function moreLess(diff: number, lang: Lang): string {
+  if (lang === 'ur') return diff > 0 ? 'زیادہ' : 'کم'
+  return diff > 0 ? 'more' : 'fewer'
+}
+
+/** One reason as a plain sentence. Returns null for codes this version does not know. */
+export function insightText(code: string, v: Values, lang: Lang): string | null {
+  const n = (key: string) => formatNumber(num(v, key))
+  const month = (key: string) => formatDate(String(v[key]), lang, false)
+  const ur = lang === 'ur'
+  switch (code) {
+    case 'arrears': {
+      const base = ur ? `آپ کے بل میں ${n('arrears')} روپے پچھلا بقایا شامل ہے، یعنی پچھلے بل کی وہ رقم جو ادا نہیں ہوئی۔`
+        : `Rs ${n('arrears')} of your bill is unpaid money from earlier bills (arrears).`
+      if (!('from_month' in v)) return base
+      return base + (ur ? ` ${month('from_month')} کا بل ${n('billed')} روپے تھا مگر صرف ${n('paid')} روپے جمع ہوئے۔`
+        : ` The ${month('from_month')} bill was Rs ${n('billed')} but only Rs ${n('paid')} was paid.`)
+    }
+    case 'units_vs_last_month': {
+      const d = num(v, 'diff')
+      if (d === 0) return ur ? `اس مہینے ${n('units')} یونٹ استعمال ہوئے، ${month('previous_month')} کے برابر۔`
+        : `You used ${n('units')} units this month, the same as ${month('previous_month')}.`
+      return ur ? `اس مہینے ${n('units')} یونٹ استعمال ہوئے، جو ${month('previous_month')} (${n('previous_units')} یونٹ) سے ${formatNumber(Math.abs(d))} ${moreLess(d, lang)} ہیں۔`
+        : `You used ${n('units')} units this month, ${formatNumber(Math.abs(d))} ${moreLess(d, lang)} than ${month('previous_month')} (${n('previous_units')} units).`
+    }
+    case 'units_vs_last_year': {
+      const d = num(v, 'diff')
+      if (d === 0) return ur ? `پچھلے سال اسی مہینے (${month('last_year_month')}) بھی ${n('last_year_units')} یونٹ استعمال ہوئے تھے۔`
+        : `The same month last year (${month('last_year_month')}) also used ${n('last_year_units')} units.`
+      return ur ? `پچھلے سال اسی مہینے (${month('last_year_month')}) ${n('last_year_units')} یونٹ استعمال ہوئے تھے، یعنی اس بار ${formatNumber(Math.abs(d))} یونٹ ${moreLess(d, lang)}۔`
+        : `The same month last year (${month('last_year_month')}) used ${n('last_year_units')} units, so this year is ${formatNumber(Math.abs(d))} ${moreLess(d, lang)}.`
+    }
+    case 'unprotected_because':
+      return ur ? `آپ کا کنکشن اس وقت «ان پروٹیکٹڈ» ہے، یعنی فی یونٹ ریٹ زیادہ ہے، کیونکہ ${month('month')} میں ${n('units')} یونٹ استعمال ہوئے جو ${n('limit')} کی حد سے زیادہ ہیں۔ لگاتار ${n('months')} مہینے ${n('limit')} یونٹ یا کم استعمال کرنے پر یہ دوبارہ «پروٹیکٹڈ» ہو سکتا ہے۔`
+        : `Your connection is "unprotected" (higher rates per unit) because ${month('month')} used ${n('units')} units, above the ${n('limit')}-unit limit. ${n('months')} months in a row at ${n('limit')} units or less can make it "protected" again.`
+    case 'unprotected':
+      return ur ? `آپ کا کنکشن «ان پروٹیکٹڈ» ہے (زیادہ ریٹ)، کیونکہ پچھلے ${n('months')} مہینوں میں کسی مہینے ${n('limit')} سے زیادہ یونٹ استعمال ہوئے۔`
+        : `Your connection is "unprotected" (higher rates): some month in the last ${n('months')} used more than ${n('limit')} units.`
+    case 'protected':
+      return ur ? `آپ کا کنکشن «پروٹیکٹڈ» ہے (کم ریٹ)۔ ہر مہینے ${n('limit')} یونٹ یا کم رکھیں تاکہ یہ رعایت برقرار رہے۔`
+        : `Your connection is "protected" (lower rates). Keep every month at ${n('limit')} units or less to keep it.`
+    case 'over_limit':
+      return ur ? `خبردار: اس مہینے ${n('units')} یونٹ استعمال ہوئے جو ${n('limit')} سے زیادہ ہیں۔ اس سے اگلے ${n('months')} مہینے زیادہ ریٹ لگ سکتا ہے۔`
+        : `Warning: this month used ${n('units')} units, above ${n('limit')}. Rates may go up for the next ${n('months')} months.`
+    case 'fpa':
+      return ur ? `بل میں ${n('fpa')} روپے فیول ایڈجسٹمنٹ (FPA) شامل ہے: بجلی بنانے والے ایندھن کی قیمت میں فرق کی وجہ سے یہ رقم لگتی ہے۔`
+        : `Rs ${n('fpa')} fuel price adjustment (FPA) is included: it covers changes in the cost of fuel used to make electricity.`
+    case 'taxes':
+      return ur ? `اس بل پر ${n('taxes')} روپے ٹیکس ہے۔` : `This bill includes Rs ${n('taxes')} in taxes.`
+    case 'late_fee':
+      return ur ? `مقررہ تاریخ کے بعد ادائیگی پر ${n('extra')} روپے اضافی لگیں گے (کل ${n('payable_after_due')} روپے)۔`
+        : `Paying after the due date adds Rs ${n('extra')} (total Rs ${n('payable_after_due')}).`
+    case 'subsidy':
+      return ur ? `حکومت نے اس بل پر ${n('subsidy')} روپے کی رعایت (سبسڈی) دی ہے۔` : `The government gave a Rs ${n('subsidy')} subsidy on this bill.`
+    default:
+      return null
+  }
 }

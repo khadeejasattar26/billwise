@@ -11,7 +11,8 @@ from typing import Any
 import ollama
 from pydantic import ValidationError
 
-from .schemas import BillFields, Comparison, Explanation, cost_per_unit
+from .insights import insight_sentences
+from .schemas import BillFields, Comparison, Explanation, Insight, cost_per_unit, energy_cost_per_unit
 
 # qwen2.5vl reads both text and images, so one model covers OCR-text extraction and the vision retry.
 DEFAULT_MODEL = "qwen2.5vl:3b"
@@ -28,8 +29,21 @@ Each field sits on the same line as its label, usually right after the English l
 - current_reading: "Current Reading", "Present Reading" / موجودہ ریڈنگ
 - units: "Units Consumed", "Units" / استعمال شدہ یونٹ
 - amount: "Amount Payable", "Payable Within Due Date" / قابل ادا رقم
-- due_date: "Due Date" / آخری تاریخ
+- due_date: "Due Date" / آخری تاریخ / مقررہ تاریخ
+- disco: the issuing company's short name from the header: LESCO, IESCO, FESCO, GEPCO, MEPCO, \
+PESCO, HESCO, SEPCO, QESCO, TESCO, HAZECO or K-Electric
+- category: "Category" (PROTECTED / UNPROTECTED) / زمرہ
+- multiplying_factor: "MF" / ضرب
+- current_bill: "Current Bill" / موجودہ بل (this month's charges, before arrears)
+- arrears: "Arrears" / بقایاجات (unpaid amount from earlier bills)
+- fpa: "Total FPA", "Fuel Price Adjustment" amount in rupees (not the per-kWh rate)
+- taxes: "Taxes" / ٹیکس total
+- subsidy: "Subsidies" / رعایت, or the government subsidy amount
+- payable_after_due: "Payable After Due Date" / مقررہ تاریخ کے بعد واجب الادا (the first, smallest late amount)
+- history: the "Bill History" table: one entry per row with MONTH, UNITS, BILL, PAYMENT. \
+Read both halves of the table. Months like "Sep 26" mean 2026-09-01; "Oct 25" means 2025-10-01.
 Example line: "Units Consumed 250 استعمال شدہ یونٹ" means units = 250.
+amount is the total payable within the due date ("Payable Within Due Date", "Grand Total").
 Copy values exactly as printed. Do not calculate or correct anything: if the printed units \
 disagree with the meter readings, report the printed units anyway; a separate checker handles that.
 Dates: billing_month is the first day of the billing month (OCT 2026 -> 2026-10-01); \
@@ -49,11 +63,13 @@ people with little schooling.
 EXPLAIN_SYSTEM_EN = EXPLAIN_RULES + "\nWrite the explanation in English."
 
 EXPLAIN_SYSTEM = EXPLAIN_RULES + """
-Return the same explanation twice: "english" and "urdu". Rules for "urdu": everyday spoken Urdu in Urdu script (not Roman Urdu). Keep digits as \
+Return the same explanation twice: "english" and "urdu". Rules for "urdu": everyday spoken Urdu in Urdu script (not Roman Urdu). Say پروٹیکٹڈ / ان پروٹیکٹڈ \
+for protected / unprotected and بقایا for arrears. Keep digits as \
 0-9 (320, 10,420). Write amounts as "10,420 روپے". Use Urdu month names (اکتوبر، نومبر، دسمبر)."""
 
 
-def explain_facts(fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> str:
+def explain_facts(fields: BillFields, comparison: Comparison | None, warnings: list[str],
+                  insights: list[Insight] = ()) -> str:
     """The explanation's input as plain sentences with every number pre-computed.
 
     Small local models misread raw JSON (e.g. inventing a comparison when last month is null),
@@ -63,7 +79,7 @@ def explain_facts(fields: BillFields, comparison: Comparison | None, warnings: l
         f"This bill: {fields.units} units (kWh), Rs {fields.amount:,.0f}, "
         f"billing month {fields.billing_month:%B %Y}, due {fields.due_date:%d %B %Y}."
     ]
-    per_unit = cost_per_unit(fields.amount, fields.units)
+    per_unit = energy_cost_per_unit(fields)
     if per_unit:
         lines.append(f"Average price this month: Rs {per_unit:.2f} per unit.")
     if comparison is None:
@@ -79,15 +95,26 @@ def explain_facts(fields: BillFields, comparison: Comparison | None, warnings: l
             f"Rs {comparison.previous_amount:,.0f}."
         )
         lines.append(f"Difference: {units_text}; {amount_text}.")
+        if comparison.source == "printed":
+            lines.append("(Last month's figures come from the history table printed on this bill.)")
         if comparison.previous_cost_per_unit:
             lines.append(f"Average price last month: Rs {comparison.previous_cost_per_unit:.2f} per unit.")
+    if fields.current_bill and fields.arrears:
+        lines.append(f"Of the Rs {fields.amount:,.0f} total, this month's electricity is Rs {fields.current_bill:,.0f}.")
+    reasons = insight_sentences(list(insights))
+    if reasons:
+        lines.append("Reasons found on the bill (mention the most important one, usually arrears or "
+                     "unprotected status, before anything else):")
+        lines.extend(f"- {r}" for r in reasons)
     if warnings:
         lines.append("The checker flagged: " + " ".join(warnings) + " Say the numbers may need checking.")
     return "\n".join(lines)
 
 
 ANSWER_SYSTEM = """You answer questions about one household's electricity bills for ordinary \
-Pakistani people. Use only the bill history provided. If it does not contain the answer, say so \
+Pakistani people. Use only the bills, charges, printed history and reasons provided. When asked why a \
+bill is high or went up, compare with earlier months and name the concrete reasons given (unpaid \
+arrears, more units, unprotected status, FPA, taxes), biggest first. If it does not contain the answer, say so \
 in one sentence. Keep answers under 80 words, use simple words, and quote real numbers. Write the answer in the \
 language the user message tells you to use."""
 
@@ -100,7 +127,8 @@ def urdu_date(d) -> str:
     return f"{d.day} {URDU_MONTHS[d.month - 1]} {d.year}"
 
 
-def urdu_explanation(fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> str:
+def urdu_explanation(fields: BillFields, comparison: Comparison | None, warnings: list[str],
+                     insights: list[Insight] = ()) -> str:
     """Urdu explanation built from a fixed template, no LLM.
 
     Used with the local 3B model, which loops and invents words in Urdu (tested 2026-11-20).
@@ -118,6 +146,8 @@ def urdu_explanation(fields: BillFields, comparison: Comparison | None, warnings
                        f"جو پچھلے مہینے سے {abs(da):,.0f} روپے {'زیادہ' if da > 0 else 'کم'} ہے")
         text = (f"اس مہینے آپ نے {units} یونٹ بجلی استعمال کی، {units_part}۔ "
                 f"آپ کا بل {amount} روپے ہے، {amount_part}۔ ")
+    if fields.arrears and fields.arrears > 0:
+        text += f"اس بل میں پچھلے بلوں کا {fields.arrears:,.0f} روپے بقایا بھی شامل ہے۔ "
     if warnings:
         text += "بل کے کچھ نمبر آپس میں میل نہیں کھاتے، براہ کرم اصل بل سے تصدیق کر لیں۔ "
     return text + f"براہ کرم یہ بل {urdu_date(fields.due_date)} تک جمع کروا دیں۔"
@@ -140,18 +170,39 @@ def reply_language(question: str) -> str:
     return "ur" if words & ROMAN_URDU_WORDS else "en"
 
 
-def answer_prompt(question: str, history: list[dict[str, Any]], force_english: bool = False) -> str:
-    """Question plus numbers-only bill history.
+def answer_prompt(question: str, history: list[dict[str, Any]], focus: dict[str, Any] | None = None,
+                  force_english: bool = False) -> str:
+    """Question plus numbers-only bill history, and the asked-about bill's charges and reasons.
 
     Earlier explanations are left out on purpose: they are in Urdu as well as English, and
     including them made the model answer English questions in Urdu.
     """
-    rows = [{k: row.get(k) for k in HISTORY_KEYS} | {"rupees_per_unit": cost_per_unit(row.get("amount"), row.get("units"))}
-            for row in history]
+    def per_unit(row: dict[str, Any]) -> float | None:
+        details = row.get("details") or {}
+        if details.get("current_bill"):
+            return cost_per_unit(details["current_bill"], row.get("units"))
+        return None if details.get("arrears") else cost_per_unit(row.get("amount"), row.get("units"))
+
+    rows = [{k: row.get(k) for k in HISTORY_KEYS} | {"rupees_per_unit": per_unit(row)} for row in history]
+    parts = [f"Bills uploaded to BillWise, oldest first:\n{json.dumps(rows, indent=2, default=str)}"]
+    details = (focus or {}).get("details") or {}
+    if details:
+        charges = {k: details.get(k) for k in ("disco", "category", "current_bill", "arrears", "fpa", "taxes",
+                                                "subsidy", "payable_after_due") if details.get(k) is not None}
+        parts.append(f"The bill being asked about ({focus.get('billing_month')}), total Rs {focus.get('amount')}:\n"
+                     f"{json.dumps(charges, indent=2)}")
+        if details.get("history"):
+            parts.append("History table printed on that bill (month, units, bill, payment):\n"
+                         + json.dumps(details["history"], indent=2))
+        reasons = insight_sentences([Insight(**i) for i in details.get("insights", [])])
+        if reasons:
+            parts.append("Reasons already worked out from the bill (use these to explain why):\n"
+                         + "\n".join(f"- {r}" for r in reasons))
     script = ("Answer in English." if force_english or reply_language(question) == "en"
-              else "Answer in Urdu script (not Roman Urdu). Keep digits as 0-9.")
-    return (f"Bill history, oldest first:\n{json.dumps(rows, indent=2, default=str)}\n\n"
-            f"{script}\nQuestion: {question}")
+              else "Answer in Urdu script (not Roman Urdu). Keep digits as 0-9. Write amounts as "
+                   "'5,000 روپے' (not 'Rs'). Say پروٹیکٹڈ / ان پروٹیکٹڈ for protected / unprotected, "
+                   "بقایا for arrears, and فیول ایڈجسٹمنٹ for FPA.")
+    return "\n\n".join(parts) + f"\n\n{script}\nQuestion: {question}"
 
 
 class LLMError(RuntimeError):
@@ -174,7 +225,8 @@ class OllamaLLM:
                               "images": [image_bytes]})
 
     def _extract(self, user_message: dict[str, Any]) -> BillFields:
-        return self._structured(EXTRACT_SYSTEM, user_message, BillFields, temperature=0, max_output=400)
+        # The history table adds ~12 rows of JSON, so extraction needs room.
+        return self._structured(EXTRACT_SYSTEM, user_message, BillFields, temperature=0, max_output=1500)
 
     def _structured(self, system: str, user_message: dict[str, Any], model: type, *,
                     temperature: float, max_output: int):
@@ -188,15 +240,16 @@ class OllamaLLM:
 
     # ---- free text -------------------------------------------------------------------
 
-    def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> Explanation:
-        facts = explain_facts(fields, comparison, warnings)
+    def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str],
+                insights: list[Insight] = ()) -> Explanation:
+        facts = explain_facts(fields, comparison, warnings, insights)
         english = self._chat(EXPLAIN_SYSTEM_EN, {"role": "user", "content": f"Facts:\n{facts}"})
         # The 3B model's Urdu is unusable, so Urdu comes from a template filled with the same facts.
-        return Explanation(english=english, urdu=urdu_explanation(fields, comparison, warnings))
+        return Explanation(english=english, urdu=urdu_explanation(fields, comparison, warnings, insights))
 
-    def answer(self, question: str, history: list[dict[str, Any]]) -> str:
+    def answer(self, question: str, history: list[dict[str, Any]], focus: dict[str, Any] | None = None) -> str:
         # Free-form answers can't be templated, and the 3B model's Urdu is unusable: answer in English.
-        prompt = answer_prompt(question, history, force_english=True)
+        prompt = answer_prompt(question, history, focus, force_english=True)
         return self._chat(ANSWER_SYSTEM, {"role": "user", "content": prompt})
 
     # ---- shared request + stop checks -----------------------------------------------

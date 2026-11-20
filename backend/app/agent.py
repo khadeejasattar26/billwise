@@ -10,7 +10,8 @@ from typing import Any, Callable, Literal, Protocol, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from .schemas import BillFields, Comparison, Explanation, cost_per_unit
+from .insights import add_months, find_insights, history_row
+from .schemas import BillFields, Comparison, Explanation, Insight, cost_per_unit
 
 MAX_ATTEMPTS = 2  # one OCR-text attempt + at most one vision retry
 
@@ -18,7 +19,8 @@ MAX_ATTEMPTS = 2  # one OCR-text attempt + at most one vision retry
 class LLM(Protocol):
     def extract_from_text(self, ocr_text: str) -> BillFields: ...
     def extract_from_image(self, image_bytes: bytes, media_type: str) -> BillFields: ...
-    def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> Explanation: ...
+    def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str],
+                insights: list[Insight]) -> Explanation: ...
 
 
 PreviousBillLookup = Callable[[str, date], dict[str, Any] | None]
@@ -34,6 +36,7 @@ class BillState(TypedDict, total=False):
     errors: list[str]
     warnings: list[str]
     comparison: Comparison | None
+    insights: list[Insight]
     explanation: Explanation
 
 
@@ -47,11 +50,14 @@ def validate_fields(fields: BillFields) -> list[str]:
     if fields.previous_reading is None or fields.current_reading is None:
         errors.append("Missing meter readings, so units cannot be checked.")
     elif fields.units is not None:
-        difference = fields.current_reading - fields.previous_reading
+        # Large connections have a multiplying factor (MF): units = reading difference x MF.
+        mf = fields.multiplying_factor or 1
+        difference = (fields.current_reading - fields.previous_reading) * mf
         if fields.units != difference:
+            shown_mf = f" x MF {mf}" if mf != 1 else ""
             errors.append(
                 f"Units {fields.units} do not match readings "
-                f"{fields.current_reading} - {fields.previous_reading} = {difference}."
+                f"({fields.current_reading} - {fields.previous_reading}){shown_mf} = {difference}."
             )
 
     if fields.amount is not None and fields.amount <= 0:
@@ -65,6 +71,44 @@ def percent_change(old: float, new: float) -> float | None:
     if old == 0:
         return None
     return round((new - old) / old * 100, 1)
+
+
+def _comparison(fields: BillFields, source: str, month, units: int, amount: float,
+                previous_cost: float | None) -> Comparison:
+    return Comparison(
+        source=source,
+        previous_month=month,
+        previous_units=units,
+        previous_amount=amount,
+        units_change_pct=percent_change(units, fields.units),
+        amount_change_pct=percent_change(amount, fields.amount),
+        units_diff=fields.units - units,
+        amount_diff=round(fields.amount - amount, 2),
+        previous_cost_per_unit=previous_cost,
+    )
+
+
+def compare_with_saved(fields: BillFields, prev: dict[str, Any] | None) -> Comparison | None:
+    """Compare with the previous bill already uploaded for this account."""
+    if prev is None:
+        return None
+    details = prev.get("details") or {}
+    if details.get("current_bill"):
+        previous_cost = cost_per_unit(details["current_bill"], prev["units"])
+    elif details.get("arrears"):
+        previous_cost = None  # total includes arrears, so a per-unit price would be wrong
+    else:
+        previous_cost = cost_per_unit(float(prev["amount"]), prev["units"])
+    return _comparison(fields, "saved", prev["billing_month"], prev["units"], float(prev["amount"]), previous_cost)
+
+
+def compare_with_printed(fields: BillFields) -> Comparison | None:
+    """Compare with last month's row in the bill's own printed history table."""
+    row = history_row(fields, add_months(fields.billing_month, -1))
+    if row is None or row.units is None or row.bill is None:
+        return None
+    # The printed BILL column can include that month's arrears, so no per-unit price from it.
+    return _comparison(fields, "printed", row.month, row.units, row.bill, None)
 
 
 def build_graph(llm: LLM, previous_bill: PreviousBillLookup):
@@ -89,24 +133,17 @@ def build_graph(llm: LLM, previous_bill: PreviousBillLookup):
 
     def compare(state: BillState) -> BillState:
         fields = state["fields"]
-        if not (fields.account_no and fields.billing_month and fields.units is not None and fields.amount):
-            return {"comparison": None}
-        prev = previous_bill(fields.account_no, fields.billing_month)
-        if prev is None:
-            return {"comparison": None}
-        return {"comparison": Comparison(
-            previous_month=prev["billing_month"],
-            previous_units=prev["units"],
-            previous_amount=float(prev["amount"]),
-            units_change_pct=percent_change(prev["units"], fields.units),
-            amount_change_pct=percent_change(float(prev["amount"]), fields.amount),
-            units_diff=fields.units - prev["units"],
-            amount_diff=round(fields.amount - float(prev["amount"]), 2),
-            previous_cost_per_unit=cost_per_unit(float(prev["amount"]), prev["units"]),
-        )}
+        comparison = None
+        if fields.account_no and fields.billing_month and fields.units is not None and fields.amount:
+            comparison = compare_with_saved(fields, previous_bill(fields.account_no, fields.billing_month))
+            if comparison is None:
+                # First upload for this account: use the history table printed on the bill itself.
+                comparison = compare_with_printed(fields)
+        return {"comparison": comparison, "insights": find_insights(fields, comparison)}
 
     def explain(state: BillState) -> BillState:
-        explanation = llm.explain(state["fields"], state.get("comparison"), state.get("warnings", []))
+        explanation = llm.explain(state["fields"], state.get("comparison"), state.get("warnings", []),
+                                  state.get("insights", []))
         return {"explanation": explanation}
 
     graph = StateGraph(BillState)

@@ -8,3 +8,4 @@
 | [0004](0004-local-ollama-instead-of-paid-llm-api.md) | Run the LLM locally with Ollama instead of a paid API | Accepted, amended by 0005 |
 | [0005](0005-ollama-default-gpt-optional.md) | Keep local Ollama as the default and allow GPT as an optional provider | Accepted |
 | [0006](0006-urdu-first-plain-language-explanations.md) | Explain bills in plain Urdu first, with numbers computed in code | Accepted |
+| [0007](0007-reasons-from-printed-history-and-rules.md) | Explain "why" with rules over the bill's printed history, and speak on the server | Accepted |

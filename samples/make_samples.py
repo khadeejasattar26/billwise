@@ -75,7 +75,86 @@ def make_it_look_like_a_photo(img: Image.Image, tilt: float) -> Image.Image:
     return img
 
 
+# ---- A bill laid out like the PITC bills issued by Pakistan's government DISCOs -----------------
+# Consumer detail, meter info, charges breakdown and a 12-month history table. Fictional company,
+# person and numbers. Shows the case BillWise must explain: last month was only partly paid, so
+# arrears make the total high, and one month above 200 units made the household "unprotected".
+
+PITC_HISTORY = [  # month, units, bill, payment
+    ("Oct 25", 150, 9000, 9000), ("Nov 25", 110, 4200, 4200), ("Dec 25", 80, 2600, 2600),
+    ("Jan 26", 85, 2700, 2700), ("Feb 26", 95, 3100, 3100), ("Mar 26", 120, 3900, 3900),
+    ("Apr 26", 130, 4300, 4300), ("May 26", 120, 3500, 3500), ("Jun 26", 160, 5000, 5000),
+    ("Jul 26", 240, 15000, 15000), ("Aug 26", 90, 4000, 4000), ("Sep 26", 180, 12000, 7000),
+]
+
+
+def draw_pitc_bill() -> Image.Image:
+    width, height = 1500, 1900
+    img = Image.new("RGB", (width, height), "white")
+    d = ImageDraw.Draw(img)
+    h1, h2, body, bold, small = (font(LATIN_BOLD, 40), font(LATIN_BOLD, 30), font(LATIN_FONT, 26),
+                                 font(LATIN_BOLD, 28), font(LATIN_FONT, 22))
+    urdu = font(URDU_FONT, 24)
+
+    def ur(x, y, text):  # Urdu label, right-aligned at x
+        d.text((x, y), text, font=urdu, fill="black", anchor="ra", direction="rtl", language="ur")
+
+    def section(y, title):
+        d.rectangle([40, y, width - 40, y + 48], fill="#222222")
+        d.text((60, y + 8), title, font=h2, fill="white")
+        return y + 70
+
+    d.text((60, 40), "DEMO ELECTRIC SUPPLY COMPANY (DESCO)", font=h1, fill="#b00000")
+    d.text((60, 95), "ELECTRICITY CONSUMER BILL  -  Sample, not a real bill", font=body, fill="black")
+
+    y = section(150, "CONSUMER DETAIL")
+    rows = [("REFERENCE NO", "00 00000 0000000", "حوالہ نمبر"), ("CONSUMER ID", "0000000777", "کنزیومر نمبر"),
+            ("CATEGORY", "UNPROTECTED", "زمرہ"), ("TARIFF", "A-1a(01) DOMESTIC", "ٹیرف"),
+            ("BILL MONTH", "OCT 26", "مہینہ بل"), ("DUE DATE", "05 NOV 26", "مقررہ تاریخ")]
+    for label, value, urdu_label in rows:
+        d.text((60, y), label, font=bold, fill="black"); d.text((420, y), value, font=body, fill="black")
+        ur(width - 60, y, urdu_label); y += 48
+
+    y = section(y + 20, "METER INFO")
+    cols = [(60, "MF", "1", "ضرب"), (330, "PREVIOUS READING", "5000", "سابقہ ریڈنگ"),
+            (760, "PRESENT READING", "5100", "موجودہ ریڈنگ"), (1180, "UNITS", "100", "یونٹ")]
+    for x, label, value, urdu_label in cols:
+        d.text((x, y), label, font=bold, fill="black")
+        d.text((x, y + 40), urdu_label, font=urdu, fill="black", direction="rtl", language="ur")
+        d.text((x, y + 95), value, font=body, fill="black")
+    d.text((60, y + 150), "Fuel Price Adjustment for Aug-26 @ 1.1000/KWH", font=small, fill="black")
+    y += 200
+
+    y = section(y, "BILL CHARGES BREAKDOWN (RS.)")
+    charges = [("Total Electricity Charges", "4,300", "کل چارجز"), ("Subsidies", "500", "رعایت"),
+               ("Net Electricity Charges", "3,800", "نیٹ چارجز"), ("Taxes", "700", "ٹیکس"),
+               ("Current Bill", "4,500", "موجودہ بل"), ("Arrears", "5,000", "بقایاجات"),
+               ("Total FPA", "100", "فیول ایڈجسٹمنٹ"), ("Grand Total", "9,600", "کل واجبات")]
+    for label, value, urdu_label in charges:
+        f = bold if label in ("Current Bill", "Grand Total") else body
+        d.text((60, y), label, font=f, fill="black"); d.text((620, y), value, font=f, fill="black")
+        ur(width - 60, y, urdu_label); y += 44
+    d.text((60, y + 10), "PAYABLE WITHIN DUE DATE   9,600", font=bold, fill="black")
+    d.text((60, y + 55), "PAYABLE AFTER DUE DATE   9,800", font=bold, fill="black")
+    y += 120
+
+    y = section(y, "BILL HISTORY")
+    headers = ["MONTH", "UNITS", "BILL (RS.)", "PAYMENT (RS.)"]
+    for half, x0 in ((PITC_HISTORY[:6], 60), (PITC_HISTORY[6:], 780)):
+        for i, h in enumerate(headers):
+            d.text((x0 + i * 170, y), h, font=small, fill="black")
+        for r, (month, units, bill, paid) in enumerate(half):
+            yy = y + 40 + r * 38
+            for i, value in enumerate((month, str(units), f"{bill:,}".replace(",", ""), f"{paid}")):
+                d.text((x0 + i * 170, yy), value, font=body, fill="black")
+    return img
+
+
 if __name__ == "__main__":
+    pitc = make_it_look_like_a_photo(draw_pitc_bill(), 1.0)
+    path = OUT / "bill_pitc_style.png"
+    pitc.save(path)
+    print(f"wrote {path} ({path.stat().st_size // 1024} KB)")
     for bill in BILLS:
         image = draw_bill(bill)
         if bill["tilt"]:

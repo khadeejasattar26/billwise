@@ -1,5 +1,17 @@
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
+export type HistoryRow = {
+  month: string
+  units: number | null
+  bill: number | null
+  payment: number | null
+}
+
+export type Insight = {
+  code: string
+  values: Record<string, number | string>
+}
+
 export type BillFields = {
   account_no: string | null
   billing_month: string | null
@@ -8,6 +20,16 @@ export type BillFields = {
   units: number | null
   amount: number | null
   due_date: string | null
+  disco: string | null
+  category: string | null
+  multiplying_factor: number | null
+  current_bill: number | null
+  arrears: number | null
+  fpa: number | null
+  taxes: number | null
+  subsidy: number | null
+  payable_after_due: number | null
+  history: HistoryRow[]
 }
 
 export type Bill = {
@@ -25,6 +47,7 @@ export type Bill = {
 }
 
 export type Comparison = {
+  source: 'saved' | 'printed'
   previous_month: string
   previous_units: number
   previous_amount: number
@@ -40,6 +63,7 @@ export type UploadResult = {
   fields: BillFields
   comparison: Comparison | null
   cost_per_unit: number | null
+  insights: Insight[]
   attempts: number
   reminder_scheduled: boolean
 }
@@ -87,4 +111,20 @@ export async function askAboutBill(billId: number, question: string): Promise<st
     body: JSON.stringify({ question }),
   })
   return data.answer
+}
+
+/** MP3 of the text in a Pakistani Urdu (or English) voice, generated on the server. */
+export async function fetchSpeech(text: string, lang: 'ur' | 'en'): Promise<Blob> {
+  let response: Response
+  try {
+    response = await fetch(`${API_URL}/speech`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, lang }),
+    })
+  } catch {
+    throw new ApiError('network_error', 'Cannot reach the BillWise API.')
+  }
+  if (!response.ok) throw new ApiError('speech_failed', `Speech failed (${response.status}).`)
+  return response.blob()
 }

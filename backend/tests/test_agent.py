@@ -25,7 +25,7 @@ class FakeLLM:
         self.calls.append("image")
         return self.image_result
 
-    def explain(self, fields, comparison, warnings):
+    def explain(self, fields, comparison, warnings, insights):
         self.calls.append("explain")
         return Explanation(english="explained", urdu="وضاحت")
 
