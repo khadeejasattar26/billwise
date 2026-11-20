@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: billwise
+      POSTGRES_PASSWORD: billwise
+      POSTGRES_DB: billwise
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - pgdata:/var/lib/postgresql/data
+
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_SECURE_COOKIE: "false"
+    volumes:
+      - n8ndata:/home/node/.n8n
+      - ./n8n:/workflows:ro
+
+volumes:
+  pgdata:
+  n8ndata:
