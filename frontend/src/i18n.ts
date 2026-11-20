@@ -7,13 +7,18 @@ const iso = (s: string) => `\u2068${s}\u2069`
 
 const ur = {
   tagline: 'بجلی کا بل، آسان زبان میں',
-  intro: 'اپنے بجلی کے بل کی تصویر اپ لوڈ کریں۔ ہم بل پڑھ کر آسان الفاظ میں بتائیں گے کہ آپ نے کتنی بجلی استعمال کی اور بل کیوں بدلا۔',
+  intro: 'بل کی تصویر لیں، ہم آسان اردو میں بتائیں گے کہ بل کتنا ہے اور کیوں۔',
   switchTo: 'English',
   switchLabel: 'Switch to English',
   upload: 'بل کی تصویر اپ لوڈ کریں',
   uploading: 'بل پڑھا جا رہا ہے…',
-  uploadHint: `${iso('JPG')} یا ${iso('PNG')} تصویر، زیادہ سے زیادہ ${iso('5 MB')}`,
+  uploadHint: 'فون کے کیمرے سے پورے بل کی صاف اور سیدھی تصویر لیں۔',
   consent: `یہ میرا اپنا بل ہے یا مجھے اس کی اجازت ہے، اور میں متفق ہوں کہ پڑھنے کے لیے تصویر ${iso('OpenAI')} (امریکہ) کو بھیجی جائے گی۔`,
+  privacyShortNothing: 'پرائیویسی: آپ کا بل ہمارے سرور پر محفوظ نہیں کیا جاتا۔',
+  privacyShortStored: 'پرائیویسی: بل کے نمبر 30 دن بعد خود بخود مٹا دیے جاتے ہیں۔',
+  newBill: 'نیا بل اپ لوڈ کریں',
+  feedback: 'رائے دیں یا کوئی مسئلہ بتائیں',
+  warningsHint: 'یہ نمبر تصویر سے غلط پڑھے گئے ہو سکتے ہیں۔ اصل بل سے ملا لیں۔',
   privacyNothing: `ہمارے سرور پر کچھ محفوظ نہیں کیا جاتا: نہ تصویر، نہ نام، نہ بل کے نمبر۔ نتیجہ صرف آپ کے براؤزر میں رہتا ہے اور صفحہ بند کرنے پر ختم ہو جاتا ہے۔ سننے کا متن ${iso('Microsoft')} کو بھیجا جاتا ہے۔ یہ ایک ڈیمو ہے: اصل رقم ہمیشہ اپنے بل سے ملا لیں۔`,
   privacyStored: `تصویر محفوظ نہیں کی جاتی؛ بل کے نمبر 30 دن بعد خود بخود مٹا دیے جاتے ہیں۔ سننے کا متن ${iso('Microsoft')} کو بھیجا جاتا ہے۔ یہ ایک ڈیمو ہے: اصل رقم ہمیشہ اپنے بل سے ملا لیں۔`,
   idle: 'ابھی کوئی بل نہیں۔ اوپر والے خانے پر نشان لگائیں، پھر اپنے بجلی کے بل کی صاف اور سیدھی تصویر اپ لوڈ کریں۔',
@@ -105,13 +110,18 @@ export type Strings = typeof ur
 
 const en: Strings = {
   tagline: 'Your electricity bill, in plain words',
-  intro: 'Upload a photo of your electricity bill. BillWise reads it and tells you, in simple words, how much electricity you used and why the bill changed.',
+  intro: 'Take a photo of your bill; we explain in plain words how much it is and why.',
   switchTo: 'اردو',
   switchLabel: 'اردو میں دیکھیں (switch to Urdu)',
   upload: 'Upload bill photo',
   uploading: 'Reading bill…',
-  uploadHint: 'JPG or PNG photo, up to 5 MB',
+  uploadHint: 'Take a clear, straight photo of the whole bill with your phone camera.',
   consent: 'This is my own bill, or I have permission to use it, and I agree the photo is sent to OpenAI (USA) to be read.',
+  privacyShortNothing: 'Privacy: your bill is not stored on our server.',
+  privacyShortStored: 'Privacy: bill numbers are deleted automatically after 30 days.',
+  newBill: 'Upload another bill',
+  feedback: 'Give feedback or report a problem',
+  warningsHint: 'These numbers may have been misread from the photo. Check them against your paper bill.',
   privacyNothing: 'Nothing is stored on our server: no photo, no name, no bill numbers. The result stays in your browser and is gone when you close the page. The listen text is sent to Microsoft. This is a demo: always check amounts against your paper bill.',
   privacyStored: 'The photo is not stored; bill numbers are deleted automatically after 30 days. The listen text is sent to Microsoft. This is a demo: always check amounts against your paper bill.',
   idle: 'No bill yet. Tick the box above, then upload a clear, straight photo of your electricity bill.',
@@ -293,4 +303,27 @@ export function insightText(code: string, v: Values, lang: Lang): string | null 
     default:
       return null
   }
+}
+
+// ---- Checker warnings in Urdu ---------------------------------------------------------------------
+// The backend writes warnings in English; older Urdu readers can't use them, so the known kinds are
+// rewritten here with their numbers. Unknown kinds fall back to a general Urdu sentence.
+
+const URDU_FIELDS: Record<string, string> = {
+  'account no': 'کھاتہ نمبر', 'billing month': 'بلنگ کا مہینہ', units: 'یونٹ', amount: 'رقم', 'due date': 'آخری تاریخ',
+}
+
+export function warningText(message: string, lang: Lang): string {
+  if (lang === 'en') return message
+  let m: RegExpMatchArray | null
+  if (message.startsWith('Missing meter readings')) return 'میٹر ریڈنگ نہیں پڑھی جا سکی، اس لیے یونٹ کی جانچ نہیں ہو سکی۔'
+  if ((m = message.match(/^Missing (.+)\.$/))) return `بل پر ${URDU_FIELDS[m[1]] ?? m[1]} نہیں پڑھا جا سکا۔`
+  if ((m = message.match(/^Units (\d+) do not match readings .* = (-?\d+)\.$/)))
+    return `بل پر ${m[1]} یونٹ لکھے ہیں، مگر میٹر ریڈنگ کے حساب سے ${m[2]} یونٹ بنتے ہیں۔`
+  if ((m = message.match(/^Charges do not add up: current bill ([\d,]+) \+ arrears ([\d,]+) \+ FPA ([\d,]+) = ([\d,]+), but the total is ([\d,]+)\.$/)))
+    return `موجودہ بل ${m[1]} + بقایا ${m[2]} + فیول ایڈجسٹمنٹ ${m[3]} = ${m[4]} روپے بنتے ہیں، مگر کل رقم ${m[5]} روپے لکھی ہے۔`
+  if (message.startsWith('Amount must be above zero')) return 'بل کی رقم صحیح نہیں پڑھی گئی۔'
+  if (message.startsWith('Due date')) return 'آخری تاریخ بلنگ کے مہینے سے پہلے پڑھی گئی ہے، جو درست نہیں لگتا۔'
+  if (message.startsWith('This does not look like')) return 'یہ تصویر بجلی کے بل کی نہیں لگتی۔'
+  return 'بل کا ایک نمبر صحیح نہیں لگتا، براہ کرم اصل بل سے ملا لیں۔'
 }

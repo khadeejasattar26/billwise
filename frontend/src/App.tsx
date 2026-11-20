@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError, askAboutBill, askWithBill, listHistory, speechUrl, uploadBill, wakeBackend, type Bill, type BillFields, type Comparison, type Insight, type UploadResult } from './api'
-import { STRINGS, discoName, formatDate, formatNumber, insightText, type Lang, type Strings } from './i18n'
+import { STRINGS, discoName, formatDate, formatNumber, insightText, warningText, type Lang, type Strings } from './i18n'
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
 
 const LANG_KEY = 'billwise-lang'
 const AC_KW = 1.5 // a 1.5-ton split AC draws roughly 1.5 kW
 const PROTECTED_LIMIT = 200 // units per month (NEPRA protected-consumer limit)
+// Where testers send feedback (a Google Form or WhatsApp link), set in Vercel; hidden when empty.
+const FEEDBACK_URL: string = import.meta.env.VITE_FEEDBACK_URL ?? ''
 const focusRing = 'focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-amber-500'
 
 function savedLang(): Lang {
@@ -25,6 +27,7 @@ export default function App() {
   const [result, setResult] = useState<UploadResult | null>(null)
   const [history, setHistory] = useState<Bill[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
+  const outcomeRef = useRef<HTMLDivElement>(null)
 
   const [consent, setConsent] = useState(false)
   const [storage, setStorage] = useState<'postgres' | 'off' | null>(null)
@@ -45,6 +48,14 @@ export default function App() {
     }
   }, [lang])
 
+  // On a phone the waiting message and the result appear below the screen; without scrolling, the
+  // page looked unchanged after an upload (UI review). Bring them into view and move focus there.
+  useEffect(() => {
+    if (status === 'idle') return
+    outcomeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    outcomeRef.current?.focus({ preventScroll: true })
+  }, [status])
+
   async function handleFile(file: File | undefined) {
     if (!file) return
     setStatus('loading')
@@ -64,11 +75,11 @@ export default function App() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 text-lg text-slate-800 sm:text-xl">
-      <header className="mb-8 flex items-start justify-between gap-4">
+      <header className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="latin text-4xl font-bold text-emerald-800">BillWise</h1>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">{t.tagline}</p>
-          <p className="mt-3 text-slate-700">{t.intro}</p>
+          <h1 className="latin text-3xl font-bold text-emerald-800 sm:text-4xl">BillWise</h1>
+          <p className="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{t.tagline}</p>
+          <p className="mt-2 text-slate-700">{t.intro}</p>
         </div>
         <button
           type="button"
@@ -112,11 +123,16 @@ export default function App() {
         >
           📷 {status === 'loading' ? t.uploading : t.upload}
         </button>
-        <p className="mt-2 text-base text-slate-600">{t.uploadHint}</p>
-        {storage && <p className="mt-2 max-w-2xl text-sm text-slate-500">🔒 {storage === 'off' ? t.privacyNothing : t.privacyStored}</p>}
+        <p className="mt-3 text-base text-slate-700">{t.uploadHint}</p>
+        {storage && (
+          <details className="mt-3 max-w-2xl text-base text-slate-700">
+            <summary className={`cursor-pointer rounded ${focusRing}`}>🔒 {storage === 'off' ? t.privacyShortNothing : t.privacyShortStored}</summary>
+            <p className="mt-2">{storage === 'off' ? t.privacyNothing : t.privacyStored}</p>
+          </details>
+        )}
       </section>
 
-      <div aria-live="polite">
+      <div aria-live="polite" ref={outcomeRef} tabIndex={-1} className="scroll-mt-4 outline-none">
         {status === 'idle' && (
           <p className="rounded-2xl border-2 border-dashed border-slate-300 p-6 text-center text-slate-600">{t.idle}</p>
         )}
@@ -124,8 +140,19 @@ export default function App() {
           <p role="status" className="rounded-2xl bg-slate-100 p-6 text-center text-slate-700">{t.loading}</p>
         )}
         {status === 'error' && error && <ErrorPanel error={error} t={t} lang={lang} />}
-        {status === 'success' && result && <Result result={result} history={history} lang={lang} t={t} />}
+        {status === 'success' && result && (
+          <Result result={result} history={history} lang={lang} t={t} onNewBill={() => inputRef.current?.click()} />
+        )}
       </div>
+
+      {FEEDBACK_URL && (
+        <footer className="mt-10 border-t-2 border-slate-200 pt-6 text-center">
+          <a href={FEEDBACK_URL} target="_blank" rel="noopener noreferrer"
+             className={`inline-block rounded-full border-2 border-emerald-700 px-6 py-3 font-semibold text-emerald-800 hover:bg-emerald-50 ${focusRing}`}>
+            💬 {t.feedback}
+          </a>
+        </footer>
+      )}
     </main>
   )
 }
@@ -137,15 +164,15 @@ function ErrorPanel({ error, t, lang }: { error: ApiError; t: Strings; lang: Lan
       <p className="text-xl font-bold">{t.errorTitle}</p>
       <p className="mt-1">{message}</p>
       {error.details?.warnings && error.details.warnings.length > 0 && (
-        <ul lang="en" dir="ltr" className="latin mt-2 list-disc pl-6 text-base">
-          {error.details.warnings.map((w) => <li key={w}>{w}</li>)}
+        <ul className="mt-2 list-disc ps-6 text-base">
+          {error.details.warnings.map((w) => <li key={w}>{warningText(w, lang)}</li>)}
         </ul>
       )}
     </div>
   )
 }
 
-function Result({ result, history, lang, t }: { result: UploadResult; history: Bill[]; lang: Lang; t: Strings }) {
+function Result({ result, history, lang, t, onNewBill }: { result: UploadResult; history: Bill[]; lang: Lang; t: Strings; onNewBill: () => void }) {
   const { bill, fields, comparison } = result
   const explanation = lang === 'ur' && bill.explanation_ur ? bill.explanation_ur : bill.explanation
   const company = discoName(fields.disco, lang)
@@ -164,12 +191,23 @@ function Result({ result, history, lang, t }: { result: UploadResult; history: B
 
       {bill.warnings.length > 0 && (
         <div role="alert" className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-5 text-amber-900">
-          <p className="font-bold">{t.warningsTitle}</p>
-          <ul lang="en" dir="ltr" className="latin mt-1 list-disc pl-6 text-base">
-            {bill.warnings.map((w) => <li key={w}>{w}</li>)}
+          <p className="font-bold">⚠️ {t.warningsTitle}</p>
+          <ul className="mt-1 list-disc ps-6">
+            {bill.warnings.map((w) => <li key={w}>{warningText(w, lang)}</li>)}
           </ul>
+          <p className="mt-2 text-base">{t.warningsHint}</p>
         </div>
       )}
+
+      <section aria-labelledby="plain-h" className="rounded-2xl bg-emerald-50 p-5">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="plain-h" className="text-2xl font-bold">{t.plainWords}</h2>
+          <ListenButton key={lang + explanation} text={explanation} lang={lang} t={t} />
+        </div>
+        <p className="text-xl sm:text-2xl">{explanation}</p>
+      </section>
+
+      <WhyCard insights={result.insights} printed={comparison?.source === 'printed'} lang={lang} t={t} />
 
       <section aria-labelledby="glance-h">
         <h2 id="glance-h" className="mb-3 text-2xl font-bold">{t.glance}</h2>
@@ -180,21 +218,19 @@ function Result({ result, history, lang, t }: { result: UploadResult; history: B
         </div>
       </section>
 
-      <section aria-labelledby="plain-h" className="rounded-2xl bg-emerald-50 p-5">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-          <h2 id="plain-h" className="text-2xl font-bold">{t.plainWords}</h2>
-          <ListenButton key={lang + explanation} text={explanation} lang={lang} t={t} />
-        </div>
-        <p className="text-xl sm:text-2xl">{explanation}</p>
-      </section>
-
       <ChargesCard fields={fields} lang={lang} t={t} />
-      <WhyCard insights={result.insights} printed={comparison?.source === 'printed'} lang={lang} t={t} />
-      <PerUnit result={result} t={t} />
-      <WhatIsAUnit comparison={comparison} t={t} />
       <UnitsChart fields={fields} bills={history} currentId={bill.public_id} lang={lang} t={t} />
       <AskBox bill={bill} t={t} />
+      <PerUnit result={result} t={t} />
+      <WhatIsAUnit comparison={comparison} t={t} />
       <BillDetails fields={fields} warnings={bill.warnings} technical={technical} lang={lang} t={t} />
+      <button
+        type="button"
+        onClick={onNewBill}
+        className={`w-full rounded-2xl border-2 border-emerald-700 px-6 py-4 text-xl font-bold text-emerald-800 hover:bg-emerald-50 ${focusRing}`}
+      >
+        📷 {t.newBill}
+      </button>
     </div>
   )
 }
@@ -407,7 +443,7 @@ function UnitsChart({ fields, bills, currentId, lang, t }: { fields: BillFields;
                     <span className="latin absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold sm:text-sm">{p.units}</span>
                   </div>
                 </div>
-                <span lang={lang} className="flex h-10 w-full flex-col items-center overflow-hidden text-center text-[11px] leading-tight text-slate-700 sm:text-xs">
+                <span lang={lang} className="flex h-10 w-full flex-col items-center overflow-hidden text-center text-xs leading-tight text-slate-700 sm:text-sm">
                   <span className="max-w-full truncate">{monthName(p.month, lang)}</span>
                   {(i === 0 || p.month.slice(5, 7) === '01') && <span className="latin text-slate-500">{p.month.slice(0, 4)}</span>}
                 </span>

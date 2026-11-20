@@ -60,6 +60,9 @@ people with little schooling.
 - Use only the facts given. Copy numbers exactly; never compute new ones.
 - Lead with how many more or fewer units and rupees than last month. Do not use percentages.
 - If the facts say there is no earlier bill, do not compare with any previous month.
+- If the facts list unpaid arrears, say clearly that part of the total is unpaid money from earlier \
+bills; that is usually why a total looks high.
+- A lower bill is "lower" or "less", never "saved" or "a saving": the household did not save money.
 - Always end with the due date. No headings, no bullet points, no advice."""
 
 # English only: for small local models, whose Urdu is unusable (see urdu_explanation below).
@@ -68,7 +71,9 @@ EXPLAIN_SYSTEM_EN = EXPLAIN_RULES + "\nWrite the explanation in English."
 EXPLAIN_SYSTEM = EXPLAIN_RULES + """
 Return the same explanation twice: "english" and "urdu". Rules for "urdu": everyday spoken Urdu in Urdu script (not Roman Urdu). Say پروٹیکٹڈ / ان پروٹیکٹڈ \
 for protected / unprotected and بقایا for arrears. Keep digits as \
-0-9 (320, 10,420). Write amounts as "10,420 روپے". Use Urdu month names (اکتوبر، نومبر، دسمبر)."""
+0-9 (320, 10,420). Write amounts as "10,420 روپے". Use Urdu month names (اکتوبر، نومبر، دسمبر).
+Use exactly these words: بقایا for arrears (never بچا ہوا or بچہ ہوا), کم / زیادہ for lower / higher \
+(never بچت), یونٹ for units, آخری تاریخ for the due date. Check spelling before answering."""
 
 
 def explain_facts(fields: BillFields, comparison: Comparison | None, warnings: list[str],

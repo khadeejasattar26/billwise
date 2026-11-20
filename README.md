@@ -145,6 +145,7 @@ The hosted container differs from a local run in two settings:
 2. **Render:** New → Blueprint → choose this GitHub repo. Render reads [render.yaml](render.yaml) and asks for `OPENAI_API_KEY` and `FRONTEND_ORIGIN` (fill that in after step 3). Note the backend URL, e.g. `https://billwise-api.onrender.com`.
 3. **Vercel:** Add New → Project → import this repo, set **Root Directory** to `frontend`, add the environment variable `VITE_API_URL` = the Render URL, and deploy. **The Vercel URL is the link you share.**
 4. Put the Vercel URL into Render's `FRONTEND_ORIGIN`, so the backend accepts requests from the site.
+5. Optional, for user testing: add `VITE_FEEDBACK_URL` in Vercel (a Google Form or WhatsApp link) and redeploy. A "رائے دیں" (give feedback) button then appears at the bottom of the page.
 
 Both redeploy automatically on every push to `main`. The page pings `/health` on load, so a sleeping backend is usually awake by the time someone picks a photo.
 
