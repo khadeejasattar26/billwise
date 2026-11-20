@@ -53,11 +53,16 @@ class RateLimiter:
 def client_ip(request: Request) -> str:
     """The visitor's address, which a visitor must not be able to fake.
 
-    Anyone can send their own X-Forwarded-For header, so its first entry is untrustworthy (QA bypassed
-    the upload limit that way). Each trusted proxy appends the address it saw, so with N proxies in
-    front of us the real visitor is the Nth entry from the right. TRUSTED_PROXY_HOPS=1 on Render;
-    0 (the default) ignores the header and uses the connection's own address.
+    - TRUSTED_CLIENT_IP_HEADER (e.g. cf-connecting-ip): a header the host's edge sets itself. Render
+      sits behind Cloudflare, which overwrites CF-Connecting-IP with the real visitor address.
+      Measured on Render: X-Forwarded-For held 3 entries ending in a Render-internal 10.x address,
+      so the old "last entry" rule made every visitor share one limit.
+    - TRUSTED_PROXY_HOPS=N: otherwise use the Nth X-Forwarded-For entry from the right.
+    - Neither set (local runs): the connection's own address; client-sent headers are ignored.
     """
+    header = os.getenv("TRUSTED_CLIENT_IP_HEADER", "").strip().lower()
+    if header and request.headers.get(header):
+        return request.headers[header].strip()
     hops = int(os.getenv("TRUSTED_PROXY_HOPS", "0"))
     forwarded = [part.strip() for part in request.headers.get("x-forwarded-for", "").split(",") if part.strip()]
     if hops > 0 and len(forwarded) >= hops:
