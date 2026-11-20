@@ -53,3 +53,10 @@ def test_an_empty_file_is_rejected_with_400_not_a_server_error():
     response = client.post("/bills", files={"image": ("bill.png", b"", "image/png")}, data={"consent": "true"})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "unreadable_image"
+
+
+def test_allowed_origins_accepts_a_comma_list_and_trims_trailing_slashes():
+    from app.main import allowed_origins
+
+    assert allowed_origins("https://billwise.vercel.app/, https://example.org ,") == [
+        "https://billwise.vercel.app", "https://example.org"]

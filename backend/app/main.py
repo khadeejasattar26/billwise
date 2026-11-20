@@ -52,10 +52,19 @@ async def lifespan(_: FastAPI):
     yield
 
 
+def allowed_origins(value: str) -> list[str]:
+    """Websites allowed to call this API: a comma-separated list such as the Vercel URL.
+
+    Exact addresses only: a wildcard such as *.vercel.app would let anyone's site spend the GPT budget.
+    A trailing slash, easy to paste by mistake, would silently block the site, so it is removed.
+    """
+    return [origin.strip().rstrip("/") for origin in value.split(",") if origin.strip()]
+
+
 app = FastAPI(title="BillWise", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")],
+    allow_origins=allowed_origins(os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")),
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
