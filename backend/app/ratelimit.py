@@ -51,10 +51,17 @@ class RateLimiter:
 
 
 def client_ip(request: Request) -> str:
-    # Behind Hugging Face's proxy the visitor's address is the first X-Forwarded-For entry.
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """The visitor's address, which a visitor must not be able to fake.
+
+    Anyone can send their own X-Forwarded-For header, so its first entry is untrustworthy (QA bypassed
+    the upload limit that way). Each trusted proxy appends the address it saw, so with N proxies in
+    front of us the real visitor is the Nth entry from the right. TRUSTED_PROXY_HOPS=1 on Render;
+    0 (the default) ignores the header and uses the connection's own address.
+    """
+    hops = int(os.getenv("TRUSTED_PROXY_HOPS", "0"))
+    forwarded = [part.strip() for part in request.headers.get("x-forwarded-for", "").split(",") if part.strip()]
+    if hops > 0 and len(forwarded) >= hops:
+        return forwarded[-hops]
     return request.client.host if request.client else "unknown"
 
 

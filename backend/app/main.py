@@ -154,6 +154,8 @@ def upload_bill(request: Request, image: UploadFile = File(...), consent: bool =
     state = graph.invoke({"image_bytes": llm_image, "media_type": llm_media_type, "ocr_text": ocr_text})
     fields, warnings = state["fields"], state["warnings"]
 
+    if not fields.is_electricity_bill:
+        raise ApiError(422, "not_a_bill", "This photo does not look like an electricity bill.")
     required = (fields.account_no, fields.billing_month, fields.units, fields.amount, fields.due_date)
     if any(value in (None, "") for value in required):
         raise ApiError(422, "fields_not_found", "Could not read the required fields from this bill.",

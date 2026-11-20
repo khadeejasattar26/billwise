@@ -36,7 +36,10 @@ ENV PYTHONUNBUFFERED=1 \
     RATE_LIMITS=on \
     OCR_MODE=off \
     STORAGE=off \
+    TRUSTED_PROXY_HOPS=1 \
     PORT=10000
 USER user
 EXPOSE 10000
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'"]
+# No --proxy-headers: uvicorn would take the visitor's address from the (fakeable) first
+# X-Forwarded-For entry; ratelimit.client_ip reads the entry Render's proxy appended instead.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --no-proxy-headers"]

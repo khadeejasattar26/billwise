@@ -6,6 +6,7 @@ from app.schemas import BillFields, Explanation
 GOOD = BillFields(account_no="0000-DEMO-0421", billing_month=date(2026, 11, 1),
                   previous_reading=15480, current_reading=15800, units=320,
                   amount=10420.0, due_date=date(2026, 12, 8))
+OCR_TEXT = "Account No 0000-DEMO-0421 Billing Month NOV 2026 Units 320 Amount 10,420 Due Date 08 DEC 2026"
 # OCR misread "320" as "820", so the units check fails.
 BAD = GOOD.model_copy(update={"units": 820})
 
@@ -36,7 +37,7 @@ def last_month(account_no, billing_month):
 
 def run(llm):
     graph = build_graph(llm, last_month)
-    return graph.invoke({"image_bytes": b"img", "media_type": "image/png", "ocr_text": "text"})
+    return graph.invoke({"image_bytes": b"img", "media_type": "image/png", "ocr_text": OCR_TEXT})
 
 
 def test_the_graph_retries_in_vision_mode_once_when_validation_fails():
@@ -88,3 +89,17 @@ def test_with_ocr_switched_off_the_graph_reads_the_photo_once_and_never_repeats_
     assert llm.calls == ["image", "explain"]
     assert state["mode"] == "vision"
     assert any("do not match readings" in w for w in state["warnings"])
+
+
+def test_a_photo_that_is_not_a_bill_ends_the_graph_without_an_explanation():
+    not_a_bill = BillFields(is_electricity_bill=False)
+    llm = FakeLLM(text_result=not_a_bill, image_result=not_a_bill)
+    state = run(llm)
+    assert llm.calls == ["text", "image"]  # no "explain": nothing to explain, no wasted LLM call
+    assert state["warnings"] == ["This does not look like an electricity bill."]
+
+
+def test_almost_no_ocr_text_skips_straight_to_the_photo():
+    llm = FakeLLM(text_result=GOOD, image_result=GOOD)
+    build_graph(llm, last_month).invoke({"image_bytes": b"img", "media_type": "image/png", "ocr_text": "  ~ |  "})
+    assert llm.calls[0] == "image"

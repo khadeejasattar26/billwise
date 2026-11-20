@@ -47,3 +47,9 @@ def test_speech_url_rejects_an_unknown_language_without_calling_the_voice_servic
     response = client.get("/speech", params={"text": "سلام", "lang": "fr"})
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_request"
+
+
+def test_an_empty_file_is_rejected_with_400_not_a_server_error():
+    response = client.post("/bills", files={"image": ("bill.png", b"", "image/png")}, data={"consent": "true"})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "unreadable_image"

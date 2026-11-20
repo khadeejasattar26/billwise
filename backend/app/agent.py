@@ -40,9 +40,20 @@ class BillState(TypedDict, total=False):
     explanation: Explanation
 
 
+MIN_OCR_CHARS = 40  # less than this and OCR found no real text (blank or unreadable page)
+
+REQUIRED = ("account_no", "billing_month", "units", "amount", "due_date")
+
+
+def has_required(fields: BillFields) -> bool:
+    return fields.is_electricity_bill and all(getattr(fields, name) not in (None, "") for name in REQUIRED)
+
+
 def validate_fields(fields: BillFields) -> list[str]:
     """Plain-Python checks on the extracted fields. Returns a list of problems; empty means valid."""
     errors: list[str] = []
+    if not fields.is_electricity_bill:
+        return ["This does not look like an electricity bill."]
     for name in ("account_no", "billing_month", "units", "amount", "due_date"):
         if getattr(fields, name) in (None, ""):
             errors.append(f"Missing {name.replace('_', ' ')}.")
@@ -58,6 +69,16 @@ def validate_fields(fields: BillFields) -> list[str]:
             errors.append(
                 f"Units {fields.units} do not match readings "
                 f"({fields.current_reading} - {fields.previous_reading}){shown_mf} = {difference}."
+            )
+
+    # The printed total should equal this month's bill + unpaid arrears + FPA. A misread arrears figure
+    # (5,100 or 1,500 instead of 5,000 on rotated or tiny photos) broke this sum and went unnoticed.
+    if fields.current_bill is not None and fields.arrears and fields.amount is not None:
+        parts = fields.current_bill + fields.arrears + (fields.fpa or 0)
+        if abs(parts - fields.amount) > 1:
+            errors.append(
+                f"Charges do not add up: current bill {fields.current_bill:,.0f} + arrears {fields.arrears:,.0f}"
+                f" + FPA {fields.fpa or 0:,.0f} = {parts:,.0f}, but the total is {fields.amount:,.0f}."
             )
 
     if fields.amount is not None and fields.amount <= 0:
@@ -117,7 +138,9 @@ def build_graph(llm: LLM, previous_bill: PreviousBillLookup):
     def extract(state: BillState) -> BillState:
         attempts = state.get("attempts", 0)
         # OCR text first when we have it; with OCR switched off (OCR_MODE=off) go straight to the photo.
-        if attempts == 0 and state.get("ocr_text"):
+        # Too little OCR text means a blank or unreadable page: skip straight to the photo, because a
+        # model given almost no text tends to invent a plausible bill.
+        if attempts == 0 and len(state.get("ocr_text", "").strip()) >= MIN_OCR_CHARS:
             fields, mode = llm.extract_from_text(state["ocr_text"]), "ocr"
         else:
             fields, mode = llm.extract_from_image(state["image_bytes"], state["media_type"]), "vision"
@@ -127,10 +150,12 @@ def build_graph(llm: LLM, previous_bill: PreviousBillLookup):
         errors = validate_fields(state["fields"])
         return {"errors": errors, "warnings": errors}
 
-    def after_validate(state: BillState) -> Literal["extract", "compare"]:
+    def after_validate(state: BillState) -> Literal["extract", "compare", "__end__"]:
         # Retry only after an OCR-text attempt: re-sending the same photo would just repeat the answer.
         if state["errors"] and state["mode"] == "ocr" and state["attempts"] < MAX_ATTEMPTS:
             return "extract"  # retry, this time sending the vision model the photo
+        if not has_required(state["fields"]):
+            return END  # not a bill, or key fields unreadable: nothing to compare or explain
         return "compare"
 
     def compare(state: BillState) -> BillState:
@@ -155,7 +180,7 @@ def build_graph(llm: LLM, previous_bill: PreviousBillLookup):
     graph.add_node("explain", explain)
     graph.add_edge(START, "extract")
     graph.add_edge("extract", "validate")
-    graph.add_conditional_edges("validate", after_validate, ["extract", "compare"])
+    graph.add_conditional_edges("validate", after_validate, ["extract", "compare", END])
     graph.add_edge("compare", "explain")
     graph.add_edge("explain", END)
     return graph.compile()

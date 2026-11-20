@@ -14,8 +14,12 @@ class ImageDecodeError(ValueError):
 
 
 def decode(image_bytes: bytes) -> np.ndarray:
-    array = np.frombuffer(image_bytes, dtype=np.uint8)
-    image = cv2.imdecode(array, cv2.IMREAD_COLOR)
+    if not image_bytes:
+        raise ImageDecodeError("The file is empty.")
+    try:
+        image = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+    except cv2.error:  # OpenCV raises (rather than returning None) for some malformed input
+        image = None
     if image is None:
         raise ImageDecodeError("The file is not a readable JPEG or PNG image.")
     return image

@@ -1,8 +1,16 @@
 """Data shapes shared by the LLM, the agent and the API."""
 
+import re
 from datetime import date
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def normalize_account(value: str | None) -> str | None:
+    """One spelling per account: the same bill was read as "00 00000 0000000" and "0000000777"."""
+    if not value:
+        return value
+    return re.sub(r"\s+", "", value).upper() or None
 
 
 class HistoryRow(BaseModel):
@@ -20,7 +28,8 @@ class BillFields(BaseModel):
     The first seven are required for a bill to be saved; the rest explain why the total is what it is.
     """
 
-    account_no: str | None = Field(None, description="Consumer / account / reference number exactly as printed")
+    is_electricity_bill: bool = Field(True, description="False if the image is not an electricity bill or its text cannot be read")
+    account_no: str | None = Field(None, description="Reference No if printed, otherwise Consumer ID / Account No; the number only")
     billing_month: date | None = Field(None, description="First day of the billing month, e.g. 2026-10-01 for Oct 2026")
     previous_reading: int | None = Field(None, description="Previous meter reading in kWh")
     current_reading: int | None = Field(None, description="Current meter reading in kWh")
@@ -37,6 +46,11 @@ class BillFields(BaseModel):
     subsidy: float | None = Field(None, description="Government subsidy shown on the bill, PKR")
     payable_after_due: float | None = Field(None, description="Amount payable after the due date (first late amount), PKR")
     history: list[HistoryRow] = Field(default_factory=list, description="Every row of the printed Bill History table")
+
+    @field_validator("account_no")
+    @classmethod
+    def _one_spelling(cls, value: str | None) -> str | None:
+        return normalize_account(value)
 
 
 class Comparison(BaseModel):

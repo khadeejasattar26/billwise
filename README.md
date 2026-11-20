@@ -73,7 +73,7 @@ The validate step checks: all required fields present; `units == current_reading
 | PostgreSQL | [backend/app/db.py](backend/app/db.py), [backend/schema.sql](backend/schema.sql): parameterised SQL, upsert per account-month |
 | React + TypeScript + Tailwind | [frontend/src/App.tsx](frontend/src/App.tsx), [frontend/src/i18n.ts](frontend/src/i18n.ts): Urdu-first right-to-left UI with an English switch, large text for older users, browser speech, loading/empty/error/success states, chart from plain divs |
 | Workflow automation (n8n) | [n8n/bill-reminder.json](n8n/bill-reminder.json): Webhook → Wait → Send Email |
-| Testing | [backend/tests/](backend/tests/): 47 pytest tests, no network |
+| Testing | [backend/tests/](backend/tests/): 57 pytest tests, no network; [qa/](qa/README.md): 42 API and 21 browser end-to-end checks |
 
 Design decisions are logged in [docs/decisions/](docs/decisions/README.md).
 
@@ -180,6 +180,27 @@ Run on 2026-11-20 against the two synthetic sample bills (MacBook with Apple M5,
 
 On the degraded photo Tesseract read the meter readings as 15069 → 15250; the units check failed, and the vision retry recovered the correct readings (15480 → 15800). Two prompt changes moved the 3B model from 0 / 2 bills on the OCR pass to 2 / 2: listing which printed label maps to which field, and giving the explanation step plain-sentence facts with every number pre-computed.
 
+## Quality assurance
+
+Before deployment the whole app was tested as a release candidate (results on 2026-11-20):
+
+| Layer | Result |
+|---|---|
+| Unit tests (`backend/tests`) | 57 passed |
+| Type check, lint, build | clean |
+| Dependency audits (`npm audit`, `pip-audit`) | 0 known vulnerabilities |
+| Secret scan (built site, git history) | no keys found |
+| API end-to-end ([qa/api_qa.py](qa/api_qa.py)) | 42 / 42 |
+| Browser end-to-end ([qa/ui_qa.py](qa/ui_qa.py)) | 21 / 21, including 0 axe-core accessibility violations |
+
+Bugs found and fixed in that pass:
+- **Critical:** a blank page or a noise photo produced an invented bill with plausible amounts. The model now reports `is_electricity_bill`, the prompt forbids guessing, and a page with almost no OCR text goes straight to the photo.
+- **High:** a fake `X-Forwarded-For` header bypassed the per-visitor upload limit.
+- **High:** arrears misread on rotated and tiny photos went unnoticed. The checker now verifies that current bill + arrears + FPA = total.
+- **Medium:** an empty file and a non-bill photo crashed the server (500), and one bill was saved under several spellings of its account number.
+- **Accessibility:** the hidden file input took a Tab stop and had no label.
+- **Urdu:** a non-bill photo showed the generic "something went wrong" message instead of a specific one.
+
 ## Known limitations
 
 - Tested on three synthetic bills and one real MEPCO bill. Other DISCOs share the PITC layout but are untested; K-Electric's layout is untested.
@@ -196,10 +217,15 @@ On the degraded photo Tesseract read the meter readings as 15069 → 15250; the 
 - A 3B local model is less accurate than a hosted frontier model, and each call takes seconds. The validator and vision retry exist to catch its mistakes.
 - No user accounts. On the public site results vanish when the page is closed; locally, bills are stored in Postgres and deleted after 30 days.
 - Upload limits are kept in memory, so they reset when the backend restarts; the OpenAI spending cap is the real safety net.
-- The n8n email node needs SMTP credentials added by hand before it sends anything.
+- The n8n email node needs SMTP credentials added by hand before it sends anything; the public site sends no reminders.
+- Browser testing used Microsoft Edge (Chromium) only; Safari, Firefox and real phones are untested.
+- The not-a-bill check relies on the model's judgement; it rejected a blank page, a noise photo and a café menu in testing.
 
 ## Next steps
 
 - Fine-tune a YOLO model to locate the amount and readings boxes before OCR, so Tesseract reads only the regions that matter.
 - Voice reminder through Vapi or Twilio as a second n8n branch.
-- Deploy: backend and Postgres on a managed container host, frontend on a static host, n8n on its own instance.
+- Read the "why" reasons aloud, not only the plain-words summary.
+- Check each charge against NEPRA's published rates to spot overbilling, and draft a complaint letter in Urdu.
+- Translate the checker's warnings into Urdu (they are English only today).
+- Test on real iPhones and Android phones, in Safari and Firefox, and on K-Electric bills.

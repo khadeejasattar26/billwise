@@ -88,6 +88,11 @@ export default function App() {
           type="file"
           accept=".jpg,.jpeg,.png,image/jpeg,image/png"
           className="sr-only"
+          // Opened by the visible upload button. Kept out of the Tab order and the accessibility
+          // tree, so keyboard and screen-reader users don't land on an invisible control (QA, axe).
+          tabIndex={-1}
+          aria-hidden="true"
+          aria-label={t.upload}
           onChange={(e) => handleFile(e.target.files?.[0])}
         />
         <label className="mb-4 flex max-w-2xl cursor-pointer items-start gap-3 rounded-2xl border-2 border-slate-200 p-4">

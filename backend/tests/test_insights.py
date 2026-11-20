@@ -99,7 +99,7 @@ class OneShotLLM:
 def test_the_graph_compares_with_printed_history_and_passes_reasons_to_the_explanation():
     llm = OneShotLLM()
     state = build_graph(llm, lambda account, month: None).invoke(
-        {"image_bytes": b"", "media_type": "image/png", "ocr_text": "t"})
+        {"image_bytes": b"", "media_type": "image/png", "ocr_text": "REFERENCE NO 0000000777 BILL MONTH OCT 26 UNITS 100 TOTAL 9,600"})
     assert state["comparison"].source == "printed"
     assert codes(llm.insights)[0] == "arrears"
 
@@ -114,3 +114,15 @@ def test_history_summary_adds_up_the_printed_history_in_code():
     assert summary["highest_month"] == {"month": "2026-07-01", "units": 240}
     assert summary["months_above_200_units"] == ["2026-07-01"]
     assert history_summary(rows[:1]) is None
+
+
+def test_charges_that_do_not_add_up_to_the_total_are_flagged():
+    # Seen in QA: arrears misread as 1,500 on a tiny photo (4,500 + 1,500 + 100 is not 9,600).
+    errors = validate_fields(BILL.model_copy(update={"arrears": 1500.0}))
+    assert any("Charges do not add up" in e for e in errors)
+    assert validate_fields(BILL) == []
+
+
+def test_account_numbers_are_stored_with_one_spelling():
+    assert BillFields(account_no=" 00 00000 0000000 ").account_no == "00000000000000"
+    assert BillFields(account_no="0000-demo-0421").account_no == "0000-DEMO-0421"

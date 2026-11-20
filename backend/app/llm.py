@@ -23,7 +23,8 @@ CONTEXT_TOKENS = 8192
 EXTRACT_SYSTEM = """You read Pakistani electricity bills. Labels may be in English, Urdu, or both \
 (for example "Units Consumed / استعمال شدہ یونٹ", "Due Date / آخری تاریخ").
 Each field sits on the same line as its label, usually right after the English label:
-- account_no: "Account No", "Consumer ID", "Reference No" / کھاتہ نمبر
+- account_no: the "Reference No" / حوالہ نمبر if printed, otherwise "Consumer ID" or "Account No"; \
+copy only the number, without spaces
 - billing_month: "Billing Month", "Bill Month" / بلنگ کا مہینہ
 - previous_reading: "Previous Reading" / سابقہ ریڈنگ
 - current_reading: "Current Reading", "Present Reading" / موجودہ ریڈنگ
@@ -49,7 +50,9 @@ disagree with the meter readings, report the printed units anyway; a separate ch
 Dates: billing_month is the first day of the billing month (OCT 2026 -> 2026-10-01); \
 due_date is YYYY-MM-DD (08 NOV 2026 -> 2026-11-08).
 Amounts are in PKR as a plain number without commas (7,850.00 -> 7850.0).
-Use null only when a label is missing or its value is unreadable. Reply with JSON only."""
+Use null only when a label is missing or its value is unreadable. Never invent or guess a value.
+If the image is not an electricity bill (a blank page, a random photo, a menu, a receipt) or its text \
+cannot be read, set is_electricity_bill to false and every other field to null. Reply with JSON only."""
 
 EXPLAIN_RULES = """You explain an electricity bill to an ordinary Pakistani household, often older \
 people with little schooling.

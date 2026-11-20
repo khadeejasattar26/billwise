@@ -1,7 +1,9 @@
 import cv2
 import numpy as np
 
-from app.vision import LLM_MAX_SIDE, shrink_for_llm
+import pytest
+
+from app.vision import LLM_MAX_SIDE, ImageDecodeError, decode, shrink_for_llm
 
 
 def encode(width, height):
@@ -19,3 +21,9 @@ def test_large_photos_are_shrunk_to_the_llm_size_as_jpeg():
 def test_small_photos_are_sent_unchanged():
     original = encode(800, 600)
     assert shrink_for_llm(original, "image/png") == (original, "image/png")
+
+
+@pytest.mark.parametrize("data", [b"", b"\x00" * 10, b"not an image at all"])
+def test_empty_or_broken_files_raise_a_clear_error_not_a_crash(data):
+    with pytest.raises(ImageDecodeError):
+        decode(data)
