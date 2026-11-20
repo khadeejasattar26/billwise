@@ -73,7 +73,7 @@ The validate step checks: all required fields present; `units == current_reading
 | PostgreSQL | [backend/app/db.py](backend/app/db.py), [backend/schema.sql](backend/schema.sql): parameterised SQL, upsert per account-month |
 | React + TypeScript + Tailwind | [frontend/src/App.tsx](frontend/src/App.tsx), [frontend/src/i18n.ts](frontend/src/i18n.ts): Urdu-first right-to-left UI with an English switch, large text for older users, browser speech, loading/empty/error/success states, chart from plain divs |
 | Workflow automation (n8n) | [n8n/bill-reminder.json](n8n/bill-reminder.json): Webhook → Wait → Send Email |
-| Testing | [backend/tests/](backend/tests/): 41 pytest tests, no network |
+| Testing | [backend/tests/](backend/tests/): 47 pytest tests, no network |
 
 Design decisions are logged in [docs/decisions/](docs/decisions/README.md).
 
@@ -130,29 +130,33 @@ Sample bills: `backend/.venv/bin/python samples/make_samples.py` regenerates thr
 
 ## Deploy (public link)
 
-Free hosting, three services (see [decision 0008](docs/decisions/0008-host-on-vercel-render-neon.md)):
+Free hosting on two services (see decisions [0008](docs/decisions/0008-host-on-vercel-render-neon.md) and [0010](docs/decisions/0010-public-site-stores-nothing.md)):
 
 | Part | Host | Free plan |
 |---|---|---|
 | Website (React) | Vercel | Static hosting |
 | Backend (Docker: FastAPI + Tesseract) | Render | 512 MB RAM, 0.1 CPU; sleeps after 15 idle minutes |
-| Database | Neon | Free Postgres |
 
-On 0.1 CPU, OpenCV + Tesseract took 1–6 minutes per photo, so the hosted container sets `OCR_MODE=off` and sends a photo shrunk to 2,000 px straight to GPT vision: 14–22 s per bill, measured in the container limited to Render's free size ([decision 0009](docs/decisions/0009-vision-only-on-free-hosting.md)). Local runs keep the full OpenCV + Tesseract pipeline.
+The hosted container differs from a local run in two settings:
+- `OCR_MODE=off`: the photo, shrunk to 2,000 px, goes straight to GPT vision. OpenCV + Tesseract took 1–6 minutes per photo on 0.1 CPU; vision takes 14–22 s ([decision 0009](docs/decisions/0009-vision-only-on-free-hosting.md)).
+- `STORAGE=off`: nothing is saved. The browser keeps the result and sends the bill back with each question to `/ask`, so no database is needed.
 
-1. **Neon:** create a project and copy its connection string (`postgresql://…?sslmode=require`). The backend creates its table on first start (`AUTO_MIGRATE=1`).
-2. **OpenAI:** set a monthly spending cap under Settings → Limits (for example $5).
-3. **Render:** New → Blueprint → choose this GitHub repo. Render reads [render.yaml](render.yaml) and asks for `OPENAI_API_KEY`, `DATABASE_URL` and `FRONTEND_ORIGIN` (fill that in after step 4, then redeploy). Note the backend URL, e.g. `https://billwise-api.onrender.com`.
-4. **Vercel:** Add New → Project → import this repo, set **Root Directory** to `frontend`, and add the environment variable `VITE_API_URL` = the Render URL. Deploy. Your public link is the Vercel URL.
-5. Put the Vercel URL into Render's `FRONTEND_ORIGIN`, so the backend accepts requests from the site.
+1. **OpenAI:** set a monthly spending cap under Settings → Limits (for example $5).
+2. **Render:** New → Blueprint → choose this GitHub repo. Render reads [render.yaml](render.yaml) and asks for `OPENAI_API_KEY` and `FRONTEND_ORIGIN` (fill that in after step 3). Note the backend URL, e.g. `https://billwise-api.onrender.com`.
+3. **Vercel:** Add New → Project → import this repo, set **Root Directory** to `frontend`, add the environment variable `VITE_API_URL` = the Render URL, and deploy. **The Vercel URL is the link you share.**
+4. Put the Vercel URL into Render's `FRONTEND_ORIGIN`, so the backend accepts requests from the site.
 
-Both Render and Vercel redeploy automatically on every push to `main`. The page pings the backend's `/health` on load, so a sleeping backend is usually awake by the time someone picks a photo.
+Both redeploy automatically on every push to `main`. The page pings `/health` on load, so a sleeping backend is usually awake by the time someone picks a photo.
 
-**Public-site protections:**
-- Bills are reachable only through a random ID, never by account number.
-- OCR text is not stored, and bills are deleted after 30 days.
-- A privacy notice sits under the upload button.
-- Each visitor gets 5 uploads, 20 questions and 30 audio clips per hour, with 50 uploads per day for the whole site. All of these can be changed in `backend/.env.example`.
+### Privacy and Pakistani law
+
+A bill carries a name, address, reference number and 12 months of payments. Pakistan has no comprehensive data protection law in force yet: the Personal Data Protection Bill was approved by the Cabinet in 2023 but not passed by Parliament as of October 2026. PECA 2016 makes unauthorised use of identity information an offence. The public site is built to the stricter standard the draft bill would set:
+
+- **Consent:** a checkbox (own bill or permission; the photo is sent to OpenAI in the USA) must be ticked before upload, and the server rejects uploads without it.
+- **Nothing stored:** no photo, name or bill numbers are saved on the server (`STORAGE=off`).
+- **Limits:** each visitor gets 5 uploads, 20 questions and 30 audio clips per hour, with 50 uploads per day for the whole site.
+
+This is not legal advice; have a Pakistani lawyer review the notice before offering BillWise beyond a demo.
 
 ## 1-minute demo script
 
@@ -190,7 +194,7 @@ On the degraded photo Tesseract read the meter readings as 15069 → 15250; the 
 - Urdu quality depends on the provider. GPT writes natural Urdu explanations and answers. The free 3B local model's Urdu is unusable (it repeats words), so with Ollama the Urdu explanation comes from a fixed template filled with the same numbers, and the Ask box answers in English.
 - BillWise explains the protected/unprotected status and the charges printed on the bill, but not slab rates or tax rates: those change often, and wrong tariff advice would mislead people.
 - A 3B local model is less accurate than a hosted frontier model, and each call takes seconds. The validator and vision retry exist to catch its mistakes.
-- No user accounts: a bill's page is reachable by anyone who has its random link, and bills are deleted after 30 days.
+- No user accounts. On the public site results vanish when the page is closed; locally, bills are stored in Postgres and deleted after 30 days.
 - Upload limits are kept in memory, so they reset when the backend restarts; the OpenAI spending cap is the real safety net.
 - The n8n email node needs SMTP credentials added by hand before it sends anything.
 

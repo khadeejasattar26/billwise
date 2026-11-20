@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { ApiError, askAboutBill, listHistory, speechUrl, uploadBill, wakeBackend, type Bill, type BillFields, type Comparison, type Insight, type UploadResult } from './api'
+import { ApiError, askAboutBill, askWithBill, listHistory, speechUrl, uploadBill, wakeBackend, type Bill, type BillFields, type Comparison, type Insight, type UploadResult } from './api'
 import { STRINGS, discoName, formatDate, formatNumber, insightText, type Lang, type Strings } from './i18n'
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
@@ -26,8 +26,14 @@ export default function App() {
   const [history, setHistory] = useState<Bill[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const [consent, setConsent] = useState(false)
+  const [storage, setStorage] = useState<'postgres' | 'off' | null>(null)
+
   // The free backend sleeps after 15 idle minutes and takes about a minute to wake: start now.
-  useEffect(wakeBackend, [])
+  // Its answer also says whether bills are stored, for the privacy notice.
+  useEffect(() => {
+    wakeBackend().then((health) => setStorage(health?.storage ?? null))
+  }, [])
 
   useEffect(() => {
     document.documentElement.lang = lang
@@ -46,7 +52,7 @@ export default function App() {
     try {
       const uploaded = await uploadBill(file)
       setResult(uploaded)
-      setHistory(await listHistory(uploaded.bill.public_id))
+      setHistory(uploaded.bill.public_id ? await listHistory(uploaded.bill.public_id) : [uploaded.bill])
       setStatus('success')
     } catch (e) {
       setError(e instanceof ApiError ? e : new ApiError('unknown', ''))
@@ -84,16 +90,25 @@ export default function App() {
           className="sr-only"
           onChange={(e) => handleFile(e.target.files?.[0])}
         />
+        <label className="mb-4 flex max-w-2xl cursor-pointer items-start gap-3 rounded-2xl border-2 border-slate-200 p-4">
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+            className={`mt-2 size-6 shrink-0 accent-emerald-700 ${focusRing}`}
+          />
+          <span>{t.consent}</span>
+        </label>
         <button
           type="button"
-          disabled={status === 'loading'}
+          disabled={status === 'loading' || !consent}
           onClick={() => inputRef.current?.click()}
-          className={`w-full rounded-2xl bg-emerald-700 px-6 py-5 text-2xl font-bold text-white shadow hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60 sm:w-auto ${focusRing}`}
+          className={`w-full rounded-2xl bg-emerald-700 px-6 py-5 text-2xl font-bold text-white shadow hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto ${focusRing}`}
         >
           📷 {status === 'loading' ? t.uploading : t.upload}
         </button>
         <p className="mt-2 text-base text-slate-600">{t.uploadHint}</p>
-        <p className="mt-2 max-w-2xl text-sm text-slate-500">🔒 {t.privacy}</p>
+        {storage && <p className="mt-2 max-w-2xl text-sm text-slate-500">🔒 {storage === 'off' ? t.privacyNothing : t.privacyStored}</p>}
       </section>
 
       <div aria-live="polite">
@@ -170,7 +185,7 @@ function Result({ result, history, lang, t }: { result: UploadResult; history: B
       <PerUnit result={result} t={t} />
       <WhatIsAUnit comparison={comparison} t={t} />
       <UnitsChart fields={fields} bills={history} currentId={bill.public_id} lang={lang} t={t} />
-      <AskBox billId={bill.public_id} t={t} />
+      <AskBox bill={bill} t={t} />
       <BillDetails fields={fields} warnings={bill.warnings} technical={technical} lang={lang} t={t} />
     </div>
   )
@@ -348,7 +363,7 @@ function monthName(iso: string, lang: Lang): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString(lang === 'ur' ? 'ur-PK' : 'en-GB', { month: lang === 'ur' ? 'long' : 'short' })
 }
 
-function UnitsChart({ fields, bills, currentId, lang, t }: { fields: BillFields; bills: Bill[]; currentId: string; lang: Lang; t: Strings }) {
+function UnitsChart({ fields, bills, currentId, lang, t }: { fields: BillFields; bills: Bill[]; currentId: string | null; lang: Lang; t: Strings }) {
   // Prefer the 12-month history printed on the bill; otherwise use bills uploaded to BillWise.
   // Geometry: 16rem chart = 2.5rem month label + 0.25rem gap + 1.5rem top padding + 11.75rem of bar space.
   type Point = { key: string; month: string; units: number; current: boolean }
@@ -360,7 +375,7 @@ function UnitsChart({ fields, bills, currentId, lang, t }: { fields: BillFields;
       .map((r) => ({ key: r.month, month: r.month, units: r.units as number, current: false }))
     points.push({ key: fields.billing_month, month: fields.billing_month, units: fields.units, current: true })
   } else {
-    points = bills.map((b) => ({ key: b.public_id, month: b.billing_month, units: b.units, current: b.public_id === currentId }))
+    points = bills.map((b) => ({ key: b.public_id ?? b.billing_month, month: b.billing_month, units: b.units, current: b.public_id === currentId }))
   }
   if (points.length === 0) return null
   const top = Math.max(PROTECTED_LIMIT * 1.15, ...points.map((p) => p.units))
@@ -400,7 +415,7 @@ function UnitsChart({ fields, bills, currentId, lang, t }: { fields: BillFields;
   )
 }
 
-function AskBox({ billId, t }: { billId: string; t: Strings }) {
+function AskBox({ bill, t }: { bill: Bill; t: Strings }) {
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -412,7 +427,8 @@ function AskBox({ billId, t }: { billId: string; t: Strings }) {
     setLoading(true)
     setError(null)
     try {
-      setAnswer(await askAboutBill(billId, question.trim()))
+      // A stored bill is looked up by its random id; otherwise the browser sends the bill itself.
+      setAnswer(bill.public_id ? await askAboutBill(bill.public_id, question.trim()) : await askWithBill(bill, question.trim()))
     } catch (err) {
       setError(err instanceof ApiError ? (t.errors[err.code] ?? err.message) : t.errors.default)
     } finally {

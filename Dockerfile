@@ -1,6 +1,7 @@
 # One container: the FastAPI backend (+ the built React site, so it also works on its own URL).
 # Deployed on Render's free plan (see render.yaml). Secrets come from the host's environment:
-#   OPENAI_API_KEY, OPENAI_MODEL, DATABASE_URL, FRONTEND_ORIGIN
+#   OPENAI_API_KEY, OPENAI_MODEL, FRONTEND_ORIGIN
+# STORAGE=off: nothing is saved on the server, so no database is needed (decision 0010).
 # OCR_MODE=off: on 0.1 CPU, OpenCV + Tesseract took 1-6 minutes per photo (decision 0009);
 # Tesseract stays installed so OCR_MODE=tesseract works on bigger machines.
 
@@ -34,6 +35,7 @@ ENV PYTHONUNBUFFERED=1 \
     LLM_PROVIDER=openai \
     RATE_LIMITS=on \
     OCR_MODE=off \
+    STORAGE=off \
     PORT=10000
 USER user
 EXPOSE 10000

@@ -1,6 +1,6 @@
 # 0008: Host the site on Vercel and the backend on Render's free plan, with Neon Postgres
 - Date: 2026-11-20
-- Status: Accepted
+- Status: Accepted (amended by [0010](0010-public-site-stores-nothing.md): the public site stores nothing, so Neon is not needed)
 - Related: `Dockerfile`, `render.yaml`, `backend/app/ratelimit.py`, `backend/migrations/003_public_id.sql`
 
 **Context:** BillWise needs a free public link. Vercel can't run Tesseract or OpenCV. A Hugging Face Docker Space now needs a paid PRO plan, and real bills carry names and account numbers.

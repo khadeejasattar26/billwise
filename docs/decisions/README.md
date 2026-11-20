@@ -9,5 +9,6 @@
 | [0005](0005-ollama-default-gpt-optional.md) | Keep local Ollama as the default and allow GPT as an optional provider | Accepted |
 | [0006](0006-urdu-first-plain-language-explanations.md) | Explain bills in plain Urdu first, with numbers computed in code | Accepted |
 | [0007](0007-reasons-from-printed-history-and-rules.md) | Explain "why" with rules over the bill's printed history, and speak on the server | Accepted |
-| [0008](0008-host-on-vercel-render-neon.md) | Host the site on Vercel and the backend on Render's free plan, with Neon Postgres | Accepted |
+| [0008](0008-host-on-vercel-render-neon.md) | Host the site on Vercel and the backend on Render's free plan, with Neon Postgres | Accepted, amended by 0010 (no database on the public site) |
 | [0009](0009-vision-only-on-free-hosting.md) | On the free host, send the photo straight to the vision model instead of running Tesseract | Accepted |
+| [0010](0010-public-site-stores-nothing.md) | The public site stores nothing; uploads need explicit consent | Accepted |

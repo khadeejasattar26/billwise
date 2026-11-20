@@ -33,7 +33,7 @@ export type BillFields = {
 }
 
 export type Bill = {
-  public_id: string
+  public_id: string | null  // null when the server stores nothing (STORAGE=off)
   account_no: string
   billing_month: string
   units: number
@@ -43,7 +43,8 @@ export type Bill = {
   explanation_ur: string
   warnings: string[]
   extraction_mode: 'ocr' | 'vision'
-  created_at: string
+  details: Record<string, unknown>
+  created_at?: string  // absent when nothing is stored
 }
 
 export type Comparison = {
@@ -66,6 +67,7 @@ export type UploadResult = {
   insights: Insight[]
   attempts: number
   reminder_scheduled: boolean
+  stored: boolean
 }
 
 export class ApiError extends Error {
@@ -94,13 +96,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /** Fire-and-forget request that wakes a sleeping free-tier backend while the user picks a photo. */
-export function wakeBackend(): void {
-  fetch(`${API_URL}/health`).catch(() => undefined)
+export async function wakeBackend(): Promise<{ storage: 'postgres' | 'off' } | null> {
+  try {
+    const response = await fetch(`${API_URL}/health`)
+    return response.ok ? await response.json() : null
+  } catch {
+    return null
+  }
 }
 
 export function uploadBill(file: File): Promise<UploadResult> {
   const form = new FormData()
   form.append('image', file)
+  form.append('consent', 'true') // the upload button is disabled until the consent box is ticked
   return request('/bills', { method: 'POST', body: form })
 }
 
@@ -115,6 +123,17 @@ export async function askAboutBill(publicId: string, question: string): Promise<
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question }),
+  })
+  return data.answer
+}
+
+/** Ask about a bill the browser holds, for when the server stores nothing. */
+export async function askWithBill(bill: Bill, question: string): Promise<string> {
+  const { billing_month, units, amount, due_date, warnings, details } = bill
+  const data = await request<{ answer: string }>('/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, bill: { billing_month, units, amount, due_date, warnings, details } }),
   })
   return data.answer
 }
