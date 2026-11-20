@@ -5,6 +5,7 @@ agent and API do not change. The key is read from OPENAI_API_KEY in backend/.env
 """
 
 import base64
+import logging
 import os
 from typing import Any
 
@@ -12,6 +13,8 @@ import openai
 
 from .llm import ANSWER_SYSTEM, EXPLAIN_SYSTEM, EXTRACT_SYSTEM, LLMError, answer_prompt, explain_facts
 from .schemas import BillFields, Comparison, Explanation
+
+log = logging.getLogger(__name__)
 
 
 class OpenAILLM:
@@ -96,7 +99,12 @@ class OpenAILLM:
     @staticmethod
     def _guard(call):
         try:
-            return call()
+            completion = call()
+            # Token counts per call, so the cost of each upload can be read from the server log.
+            if completion.usage:
+                log.info("openai tokens model=%s input=%d output=%d", completion.model,
+                         completion.usage.prompt_tokens, completion.usage.completion_tokens)
+            return completion
         except openai.AuthenticationError as exc:
             raise LLMError("OPENAI_API_KEY is invalid.") from exc
         except openai.NotFoundError as exc:
