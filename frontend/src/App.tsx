@@ -149,7 +149,10 @@ function Result({ result, history, lang, t }: { result: UploadResult; history: B
   const { bill, fields, comparison } = result
   const explanation = lang === 'ur' && bill.explanation_ur ? bill.explanation_ur : bill.explanation
   const company = discoName(fields.disco, lang)
-  const technical = `${bill.extraction_mode === 'vision' ? t.readVision : t.readOcr} ${t.attempts(result.attempts)}.`
+  // "OCR failed" only when OCR actually ran first; with OCR switched off (the free host) the photo
+  // is the first and only reading, which the old text wrongly reported as a failure.
+  const readMode = bill.extraction_mode === 'ocr' ? t.readOcr : result.attempts > 1 ? t.readVision : t.readPhoto
+  const technical = `${readMode} ${t.attempts(result.attempts)}.`
     + (result.reminder_scheduled ? ` ${t.reminderOn}` : '')
   return (
     <div className="space-y-8">
