@@ -30,6 +30,9 @@ logging.basicConfig(level=logging.INFO)
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MEDIA_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
 # Fields beyond the required seven, stored in the `details` JSON column.
+# "tesseract" (default): OpenCV + Tesseract first, photo only as a retry. "off": photo straight to the
+# vision model, for small hosts where OCR is too slow (decision 0009).
+OCR_MODE = os.getenv("OCR_MODE", "tesseract").lower()
 # Bills are deleted this many days after upload: they carry account numbers and amounts.
 RETENTION_DAYS = int(os.getenv("RETENTION_DAYS", "30"))
 DETAIL_FIELDS = {"disco", "category", "multiplying_factor", "current_bill", "arrears", "fpa", "taxes",
@@ -129,13 +132,14 @@ def upload_bill(request: Request, image: UploadFile = File(...), llm=Depends(get
     check_limit(request, "upload", UPLOADS_PER_HOUR, UPLOADS_PER_DAY_TOTAL)
 
     try:
-        cleaned = vision.clean(image_bytes)
+        llm_image, llm_media_type = vision.shrink_for_llm(image_bytes, MEDIA_TYPES[suffix])
+        # OCR_MODE=off skips OpenCV + Tesseract: on a 0.1-CPU free host they took 1-6 minutes per photo.
+        ocr_text = ocr.read_text(vision.clean(image_bytes)) if OCR_MODE != "off" else ""
     except vision.ImageDecodeError as exc:
         raise ApiError(400, "unreadable_image", str(exc))
-    ocr_text = ocr.read_text(cleaned)
 
     graph = build_graph(llm, db.previous_bill)
-    state = graph.invoke({"image_bytes": image_bytes, "media_type": MEDIA_TYPES[suffix], "ocr_text": ocr_text})
+    state = graph.invoke({"image_bytes": llm_image, "media_type": llm_media_type, "ocr_text": ocr_text})
     fields, warnings = state["fields"], state["warnings"]
 
     required = (fields.account_no, fields.billing_month, fields.units, fields.amount, fields.due_date)

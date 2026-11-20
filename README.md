@@ -73,7 +73,7 @@ The validate step checks: all required fields present; `units == current_reading
 | PostgreSQL | [backend/app/db.py](backend/app/db.py), [backend/schema.sql](backend/schema.sql): parameterised SQL, upsert per account-month |
 | React + TypeScript + Tailwind | [frontend/src/App.tsx](frontend/src/App.tsx), [frontend/src/i18n.ts](frontend/src/i18n.ts): Urdu-first right-to-left UI with an English switch, large text for older users, browser speech, loading/empty/error/success states, chart from plain divs |
 | Workflow automation (n8n) | [n8n/bill-reminder.json](n8n/bill-reminder.json): Webhook → Wait → Send Email |
-| Testing | [backend/tests/](backend/tests/): 32 pytest tests, no network |
+| Testing | [backend/tests/](backend/tests/): 41 pytest tests, no network |
 
 Design decisions are logged in [docs/decisions/](docs/decisions/README.md).
 
@@ -87,6 +87,7 @@ docker compose up -d            # Postgres on localhost:5433, n8n on localhost:5
 # Only if your database was created before the Urdu update:
 docker compose exec -T db psql -U billwise -d billwise < backend/migrations/001_add_explanation_ur.sql
 docker compose exec -T db psql -U billwise -d billwise < backend/migrations/002_add_details.sql
+docker compose exec -T db psql -U billwise -d billwise < backend/migrations/003_public_id.sql
 
 # 2. Tesseract + Urdu (macOS)
 brew install python@3.12 tesseract
@@ -104,7 +105,7 @@ cd backend
 python3.12 -m venv .venv
 .venv/bin/pip install fastapi uvicorn python-multipart opencv-python-headless pytesseract pillow \
   langgraph ollama openai edge-tts pydantic "psycopg[binary]" httpx python-dotenv pytest
-cp .env.example .env
+cp .env.example .env            # set RATE_LIMITS=off for local development
 .venv/bin/uvicorn app.main:app --port 8000
 
 # 5. Frontend (new terminal)
@@ -126,6 +127,32 @@ Sample bills: `backend/.venv/bin/python samples/make_samples.py` regenerates thr
 - `samples/bill_pitc_style.png`: laid out like a real PITC bill, with a charges breakdown, Rs 5,000 arrears, a 12-month history and one month above 200 units.
 - `samples/bill_2026_10.png`: a simple clean scan.
 - `samples/bill_2026_11.png`: tilted 2° and noisy, like a phone photo.
+
+## Deploy (public link)
+
+Free hosting, three services (see [decision 0008](docs/decisions/0008-host-on-vercel-render-neon.md)):
+
+| Part | Host | Free plan |
+|---|---|---|
+| Website (React) | Vercel | Static hosting |
+| Backend (Docker: FastAPI + Tesseract) | Render | 512 MB RAM, 0.1 CPU; sleeps after 15 idle minutes |
+| Database | Neon | Free Postgres |
+
+On 0.1 CPU, OpenCV + Tesseract took 1–6 minutes per photo, so the hosted container sets `OCR_MODE=off` and sends a photo shrunk to 2,000 px straight to GPT vision: 14–22 s per bill, measured in the container limited to Render's free size ([decision 0009](docs/decisions/0009-vision-only-on-free-hosting.md)). Local runs keep the full OpenCV + Tesseract pipeline.
+
+1. **Neon:** create a project and copy its connection string (`postgresql://…?sslmode=require`). The backend creates its table on first start (`AUTO_MIGRATE=1`).
+2. **OpenAI:** set a monthly spending cap under Settings → Limits (for example $5).
+3. **Render:** New → Blueprint → choose this GitHub repo. Render reads [render.yaml](render.yaml) and asks for `OPENAI_API_KEY`, `DATABASE_URL` and `FRONTEND_ORIGIN` (fill that in after step 4, then redeploy). Note the backend URL, e.g. `https://billwise-api.onrender.com`.
+4. **Vercel:** Add New → Project → import this repo, set **Root Directory** to `frontend`, and add the environment variable `VITE_API_URL` = the Render URL. Deploy. Your public link is the Vercel URL.
+5. Put the Vercel URL into Render's `FRONTEND_ORIGIN`, so the backend accepts requests from the site.
+
+Both Render and Vercel redeploy automatically on every push to `main`. The page pings the backend's `/health` on load, so a sleeping backend is usually awake by the time someone picks a photo.
+
+**Public-site protections:**
+- Bills are reachable only through a random ID, never by account number.
+- OCR text is not stored, and bills are deleted after 30 days.
+- A privacy notice sits under the upload button.
+- Each visitor gets 5 uploads, 20 questions and 30 audio clips per hour, with 50 uploads per day for the whole site. All of these can be changed in `backend/.env.example`.
 
 ## 1-minute demo script
 
@@ -163,7 +190,8 @@ On the degraded photo Tesseract read the meter readings as 15069 → 15250; the 
 - Urdu quality depends on the provider. GPT writes natural Urdu explanations and answers. The free 3B local model's Urdu is unusable (it repeats words), so with Ollama the Urdu explanation comes from a fixed template filled with the same numbers, and the Ask box answers in English.
 - BillWise explains the protected/unprotected status and the charges printed on the bill, but not slab rates or tax rates: those change often, and wrong tariff advice would mislead people.
 - A 3B local model is less accurate than a hosted frontier model, and each call takes seconds. The validator and vision retry exist to catch its mistakes.
-- No user accounts: anyone who knows an account number can list its bills.
+- No user accounts: a bill's page is reachable by anyone who has its random link, and bills are deleted after 30 days.
+- Upload limits are kept in memory, so they reset when the backend restarts; the OpenAI spending cap is the real safety net.
 - The n8n email node needs SMTP credentials added by hand before it sends anything.
 
 ## Next steps

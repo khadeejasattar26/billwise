@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { ApiError, askAboutBill, fetchSpeech, listHistory, uploadBill, type Bill, type BillFields, type Comparison, type Insight, type UploadResult } from './api'
+import { ApiError, askAboutBill, fetchSpeech, listHistory, uploadBill, wakeBackend, type Bill, type BillFields, type Comparison, type Insight, type UploadResult } from './api'
 import { STRINGS, discoName, formatDate, formatNumber, insightText, type Lang, type Strings } from './i18n'
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
@@ -25,6 +25,9 @@ export default function App() {
   const [result, setResult] = useState<UploadResult | null>(null)
   const [history, setHistory] = useState<Bill[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // The free backend sleeps after 15 idle minutes and takes about a minute to wake: start now.
+  useEffect(wakeBackend, [])
 
   useEffect(() => {
     document.documentElement.lang = lang

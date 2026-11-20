@@ -93,6 +93,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T
 }
 
+/** Fire-and-forget request that wakes a sleeping free-tier backend while the user picks a photo. */
+export function wakeBackend(): void {
+  fetch(`${API_URL}/health`).catch(() => undefined)
+}
+
 export function uploadBill(file: File): Promise<UploadResult> {
   const form = new FormData()
   form.append('image', file)

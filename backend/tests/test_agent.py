@@ -80,3 +80,11 @@ def test_the_graph_returns_the_explanation_in_english_and_urdu():
     explanation = run(FakeLLM(text_result=GOOD, image_result=GOOD))["explanation"]
     assert explanation.english == "explained"
     assert explanation.urdu == "وضاحت"
+
+
+def test_with_ocr_switched_off_the_graph_reads_the_photo_once_and_never_repeats_it():
+    llm = FakeLLM(text_result=GOOD, image_result=BAD)
+    state = build_graph(llm, last_month).invoke({"image_bytes": b"img", "media_type": "image/png", "ocr_text": ""})
+    assert llm.calls == ["image", "explain"]
+    assert state["mode"] == "vision"
+    assert any("do not match readings" in w for w in state["warnings"])

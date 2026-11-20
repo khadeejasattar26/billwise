@@ -59,3 +59,20 @@ def clean(image_bytes: bytes) -> np.ndarray:
     return cv2.adaptiveThreshold(
         gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, blockSize=31, C=15
     )
+
+
+# Largest side of the photo sent to the LLM. Phone photos are ~4000 px; the model downsizes them
+# anyway, so sending 2000 px cuts upload time and image tokens without losing readable text.
+LLM_MAX_SIDE = 2000
+
+
+def shrink_for_llm(image_bytes: bytes, media_type: str) -> tuple[bytes, str]:
+    """Return the photo resized to at most LLM_MAX_SIDE pixels, as JPEG. Small photos pass through."""
+    image = decode(image_bytes)
+    h, w = image.shape[:2]
+    if max(h, w) <= LLM_MAX_SIDE:
+        return image_bytes, media_type
+    scale = LLM_MAX_SIDE / max(h, w)
+    resized = cv2.resize(image, (round(w * scale), round(h * scale)), interpolation=cv2.INTER_AREA)
+    ok, encoded = cv2.imencode(".jpg", resized, [cv2.IMWRITE_JPEG_QUALITY, 88])
+    return (encoded.tobytes(), "image/jpeg") if ok else (image_bytes, media_type)

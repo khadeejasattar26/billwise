@@ -116,7 +116,8 @@ def build_graph(llm: LLM, previous_bill: PreviousBillLookup):
 
     def extract(state: BillState) -> BillState:
         attempts = state.get("attempts", 0)
-        if attempts == 0:
+        # OCR text first when we have it; with OCR switched off (OCR_MODE=off) go straight to the photo.
+        if attempts == 0 and state.get("ocr_text"):
             fields, mode = llm.extract_from_text(state["ocr_text"]), "ocr"
         else:
             fields, mode = llm.extract_from_image(state["image_bytes"], state["media_type"]), "vision"
@@ -127,7 +128,8 @@ def build_graph(llm: LLM, previous_bill: PreviousBillLookup):
         return {"errors": errors, "warnings": errors}
 
     def after_validate(state: BillState) -> Literal["extract", "compare"]:
-        if state["errors"] and state["attempts"] < MAX_ATTEMPTS:
+        # Retry only after an OCR-text attempt: re-sending the same photo would just repeat the answer.
+        if state["errors"] and state["mode"] == "ocr" and state["attempts"] < MAX_ATTEMPTS:
             return "extract"  # retry, this time sending the vision model the photo
         return "compare"
 

@@ -1,6 +1,6 @@
 # 0001: Read bills with OCR first, fall back to vision once
 - Date: 2026-11-20
-- Status: Accepted
+- Status: Accepted (amended by [0009](0009-vision-only-on-free-hosting.md): the 0.1-CPU free host skips OCR)
 - Related: `backend/app/agent.py`, `backend/tests/test_agent.py`, `BUILD_BRIEF.md`
 
 **Context:** Bill photos arrive tilted, shadowed and in mixed English/Urdu. We need the seven fields reliably, and the job brief asks us to show OpenCV and Tesseract.
