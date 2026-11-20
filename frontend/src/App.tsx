@@ -22,6 +22,9 @@ function formatMonth(iso: string) {
 function formatValue(key: keyof BillFields, value: BillFields[keyof BillFields]) {
   if (value === null || value === '') return '—'
   if (key === 'billing_month') return formatMonth(String(value))
+  if (key === 'due_date') {
+    return new Date(String(value) + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
   if (key === 'amount') return `Rs ${Number(value).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`
   return String(value)
 }
@@ -170,12 +173,18 @@ function AmountChart({ bills, currentId }: { bills: Bill[]; currentId: number })
       {bills.length === 1 && <p className="mb-2 text-sm text-slate-500">Upload next month's bill to see a comparison.</p>}
       <ul className="flex h-56 items-end gap-4 rounded-lg border border-slate-200 p-4" aria-label="Bill amount per month">
         {bills.map((b) => (
-          <li key={b.id} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-            <span className="text-xs font-semibold">Rs {Math.round(b.amount).toLocaleString('en-PK')}</span>
-            <div
-              className={`w-full max-w-16 rounded-t ${b.id === currentId ? 'bg-emerald-600' : 'bg-slate-400'}`}
-              style={{ height: `${Math.max(4, (b.amount / max) * 100)}%` }}
-            />
+          <li key={b.id} className="flex h-full flex-1 flex-col items-center gap-1">
+            {/* The bar area alone sets the 100% height, so labels never squeeze the bars. */}
+            <div className="flex min-h-0 w-full flex-1 items-end justify-center pt-5">
+              <div
+                className={`relative w-full max-w-16 rounded-t ${b.id === currentId ? 'bg-emerald-600' : 'bg-slate-400'}`}
+                style={{ height: `${Math.max(4, (b.amount / max) * 100)}%` }}
+              >
+                <span className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-semibold">
+                  Rs {Math.round(b.amount).toLocaleString('en-PK')}
+                </span>
+              </div>
+            </div>
             <span className="text-xs text-slate-600">{formatMonth(b.billing_month)}</span>
           </li>
         ))}

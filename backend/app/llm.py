@@ -21,17 +21,55 @@ CONTEXT_TOKENS = 8192
 
 EXTRACT_SYSTEM = """You read Pakistani electricity bills. Labels may be in English, Urdu, or both \
 (for example "Units Consumed / استعمال شدہ یونٹ", "Due Date / آخری تاریخ").
+Each field sits on the same line as its label, usually right after the English label:
+- account_no: "Account No", "Consumer ID", "Reference No" / کھاتہ نمبر
+- billing_month: "Billing Month", "Bill Month" / بلنگ کا مہینہ
+- previous_reading: "Previous Reading" / سابقہ ریڈنگ
+- current_reading: "Current Reading", "Present Reading" / موجودہ ریڈنگ
+- units: "Units Consumed", "Units" / استعمال شدہ یونٹ
+- amount: "Amount Payable", "Payable Within Due Date" / قابل ادا رقم
+- due_date: "Due Date" / آخری تاریخ
+Example line: "Units Consumed 250 استعمال شدہ یونٹ" means units = 250.
 Copy values exactly as printed. Do not calculate or correct anything: if the printed units \
 disagree with the meter readings, report the printed units anyway; a separate checker handles that.
 Dates: billing_month is the first day of the billing month (OCT 2026 -> 2026-10-01); \
 due_date is YYYY-MM-DD (08 NOV 2026 -> 2026-11-08).
 Amounts are in PKR as a plain number without commas (7,850.00 -> 7850.0).
-Use null for any field you cannot find or read with confidence. Reply with JSON only."""
+Use null only when a label is missing or its value is unreadable. Reply with JSON only."""
 
 EXPLAIN_SYSTEM = """You explain electricity bills to a household in Pakistan. Write 2 or 3 short, \
-plain sentences. Use the exact numbers you are given (units in kWh, amounts in Rs). Say how this \
-month compares with last month if that data is present, and mention the due date. \
-No headings, no bullet points, no advice you cannot back with the numbers."""
+plain sentences using only the facts given. Copy numbers exactly; never compute new ones. \
+If the facts say there is no earlier bill, do not compare with any previous month. \
+Mention the due date. No headings, no bullet points, no advice."""
+
+
+def explain_facts(fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> str:
+    """The explanation's input as plain sentences with every number pre-computed.
+
+    Small local models misread raw JSON (e.g. inventing a comparison when last month is null),
+    so the facts are spelled out and the model only has to rephrase them.
+    """
+    lines = [
+        f"This bill: {fields.units} units (kWh), Rs {fields.amount:,.0f}, "
+        f"billing month {fields.billing_month:%B %Y}, due {fields.due_date:%d %B %Y}."
+    ]
+    if comparison is None:
+        lines.append("There is no earlier bill on record, so no comparison is possible.")
+    else:
+        def change(pct: float | None) -> str:
+            if pct is None:
+                return "change unknown"
+            return f"{abs(pct)}% {'more' if pct > 0 else 'less'}" if pct else "no change"
+
+        lines.append(
+            f"Previous bill ({comparison.previous_month:%B %Y}): {comparison.previous_units} units, "
+            f"Rs {comparison.previous_amount:,.0f}. Units: {change(comparison.units_change_pct)}. "
+            f"Amount: {change(comparison.amount_change_pct)} "
+            f"(Rs {abs(fields.amount - comparison.previous_amount):,.0f} difference)."
+        )
+    if warnings:
+        lines.append("The checker flagged: " + " ".join(warnings) + " Say the numbers may need checking.")
+    return "\n".join(lines)
 
 ANSWER_SYSTEM = """You answer questions about one household's electricity bills. Use only the bill \
 history provided. If the history does not contain the answer, say so in one sentence. \
@@ -69,12 +107,8 @@ class OllamaLLM:
     # ---- free text -------------------------------------------------------------------
 
     def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> str:
-        facts = {
-            "this_month": fields.model_dump(mode="json"),
-            "last_month": comparison.model_dump(mode="json") if comparison else None,
-            "checker_warnings": warnings,
-        }
-        return self._chat(EXPLAIN_SYSTEM, {"role": "user", "content": f"Bill data:\n{json.dumps(facts, indent=2)}"})
+        facts = explain_facts(fields, comparison, warnings)
+        return self._chat(EXPLAIN_SYSTEM, {"role": "user", "content": f"Facts:\n{facts}"})
 
     def answer(self, question: str, history: list[dict[str, Any]]) -> str:
         prompt = (

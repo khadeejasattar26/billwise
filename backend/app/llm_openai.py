@@ -11,7 +11,7 @@ from typing import Any
 
 import openai
 
-from .llm import ANSWER_SYSTEM, EXPLAIN_SYSTEM, EXTRACT_SYSTEM, LLMError
+from .llm import ANSWER_SYSTEM, EXPLAIN_SYSTEM, EXTRACT_SYSTEM, LLMError, explain_facts
 from .schemas import BillFields, Comparison
 
 
@@ -67,12 +67,7 @@ class OpenAILLM:
     # ---- free text -------------------------------------------------------------------
 
     def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> str:
-        facts = {
-            "this_month": fields.model_dump(mode="json"),
-            "last_month": comparison.model_dump(mode="json") if comparison else None,
-            "checker_warnings": warnings,
-        }
-        return self._text(EXPLAIN_SYSTEM, f"Bill data:\n{json.dumps(facts, indent=2)}")
+        return self._text(EXPLAIN_SYSTEM, f"Facts:\n{explain_facts(fields, comparison, warnings)}")
 
     def answer(self, question: str, history: list[dict[str, Any]]) -> str:
         prompt = (

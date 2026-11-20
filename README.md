@@ -2,6 +2,8 @@
 
 BillWise reads a photo of a Pakistani electricity bill (English + Urdu), pulls out the seven key fields, checks that they add up, compares them with last month, explains the change in plain words, and schedules a due-date reminder.
 
+![BillWise showing the November sample bill: extracted fields, explanation, amount chart and an answered question](docs/images/billwise-result.png)
+
 Upload a photo → get a checked table of fields, a 2–3 sentence explanation ("You used 320 units, 28% more than October…"), a month-by-month chart, and a box to ask questions about your bills.
 
 ## How it works
@@ -43,7 +45,7 @@ The validate step checks: all required fields present; `units == current_reading
 | PostgreSQL | [backend/app/db.py](backend/app/db.py), [backend/schema.sql](backend/schema.sql): parameterised SQL, upsert per account-month |
 | React + TypeScript + Tailwind | [frontend/src/App.tsx](frontend/src/App.tsx): Tailwind v4, loading/empty/error/success states, chart from plain divs |
 | Workflow automation (n8n) | [n8n/bill-reminder.json](n8n/bill-reminder.json): Webhook → Wait → Send Email |
-| Testing | [backend/tests/](backend/tests/): 15 pytest tests, no network |
+| Testing | [backend/tests/](backend/tests/): 16 pytest tests, no network |
 
 Design decisions are logged in [docs/decisions/](docs/decisions/README.md).
 
@@ -99,9 +101,24 @@ Sample bills: `backend/.venv/bin/python samples/make_samples.py` regenerates `sa
 4. **(10 s)** Point at the explanation and the chart: "It compares with October from Postgres: 28% more units, 33% more money."
 5. **(10 s)** Ask "Why is this month higher?" in the box. Then show n8n: "Every saved bill hits this webhook, which waits until three days before the due date and sends a reminder."
 
+## Measured results
+
+Run on 2026-11-20 against the two synthetic sample bills (MacBook with Apple M5, 16 GB RAM):
+
+| LLM | Bill | Fields correct | Attempts | Time |
+|---|---|---|---|---|
+| `qwen2.5vl:3b` (local, free) | Oct 2026 | 7 / 7 | 1 (OCR) | 4.0 s |
+| `qwen2.5vl:3b` (local, free) | Nov 2026 (tilted 2°, noisy) | 7 / 7 | 1 (OCR) | 4.5 s |
+| `gpt-4.1-mini` (OpenAI) | Oct 2026 | 7 / 7 | 1 (OCR) | 5.3 s |
+| `gpt-4.1-mini` (OpenAI) | Nov 2026 (tilted 2°, noisy) | 7 / 7 | 1 (OCR) | 4.2 s |
+| `gpt-4.1-mini` (OpenAI) | Nov 2026 shrunk to 560 px, JPEG quality 12 | 6 / 7 (due date read as 6 Dec, printed 8 Dec) | 2 (OCR failed the units check → vision retry) | not timed |
+
+On the degraded photo Tesseract read the meter readings as 15069 → 15250; the units check failed, and the vision retry recovered the correct readings (15480 → 15800). Two prompt changes moved the 3B model from 0 / 2 bills on the OCR pass to 2 / 2: listing which printed label maps to which field, and giving the explanation step plain-sentence facts with every number pre-computed.
+
 ## Known limitations
 
 - Tested on two synthetic bills only. Real bills from different distribution companies use different layouts, and Tesseract's Urdu accuracy on real phone photos is unmeasured.
+- The validator checks that numbers are consistent, not that they are right: on a blurry photo the model read the due date as 6 Dec instead of 8 Dec, and nothing flagged it.
 - Deskew handles up to 15° of tilt and no perspective distortion (a photo taken at an angle).
 - Re-uploading a bill for the same month overwrites the earlier one (see [decision 0003](docs/decisions/0003-postgres-upsert-per-account-month.md)).
 - With `LLM_PROVIDER=openai`, bill photos are sent to OpenAI and each bill costs money.
