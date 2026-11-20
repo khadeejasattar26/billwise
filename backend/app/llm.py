@@ -1,4 +1,8 @@
-"""All LLM calls, to a local Ollama server. Free, no API key, and bill data never leaves the machine."""
+"""LLM calls. Default: a local Ollama server (free, no key, bill data stays on the machine).
+
+Set LLM_PROVIDER=openai to use GPT instead (see llm_openai.py). Both classes expose the same
+four methods, so the agent and API never know which one they are talking to.
+"""
 
 import json
 import os
@@ -105,3 +109,15 @@ class OllamaLLM:
         if not text:
             raise LLMError("The model returned an empty answer.")
         return text
+
+
+def make_llm():
+    """Pick the LLM from LLM_PROVIDER: "ollama" (default, free, local) or "openai" (paid, hosted)."""
+    provider = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
+    if provider == "ollama":
+        return OllamaLLM()
+    if provider == "openai":
+        from .llm_openai import OpenAILLM  # imported only when chosen
+
+        return OpenAILLM()
+    raise ValueError(f"LLM_PROVIDER must be 'ollama' or 'openai', got {provider!r}.")

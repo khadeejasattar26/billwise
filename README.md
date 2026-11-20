@@ -37,19 +37,19 @@ The validate step checks: all required fields present; `units == current_reading
 |---|---|
 | Computer vision (OpenCV) | [backend/app/vision.py](backend/app/vision.py): grayscale, upscale, denoise, deskew, adaptive threshold |
 | OCR (Tesseract) | [backend/app/ocr.py](backend/app/ocr.py): `eng+urd`, page-segmentation mode 4 |
-| LLMs, prompt engineering, structured output | [backend/app/llm.py](backend/app/llm.py): local `qwen2.5vl:3b` via Ollama (free, no key), output constrained to a JSON schema from a Pydantic model, `done_reason` checks |
+| LLMs, prompt engineering, structured output | [backend/app/llm.py](backend/app/llm.py): local `qwen2.5vl:3b` via Ollama by default (free, no key), or GPT via the official `openai` SDK with `LLM_PROVIDER=openai` ([llm_openai.py](backend/app/llm_openai.py)); output constrained to a JSON schema from a Pydantic model; stop reasons checked |
 | Agent workflow (LangGraph) | [backend/app/agent.py](backend/app/agent.py): `StateGraph` with a conditional retry edge |
 | Python + FastAPI | [backend/app/main.py](backend/app/main.py): upload limits, one error shape, CORS |
 | PostgreSQL | [backend/app/db.py](backend/app/db.py), [backend/schema.sql](backend/schema.sql): parameterised SQL, upsert per account-month |
 | React + TypeScript + Tailwind | [frontend/src/App.tsx](frontend/src/App.tsx): Tailwind v4, loading/empty/error/success states, chart from plain divs |
 | Workflow automation (n8n) | [n8n/bill-reminder.json](n8n/bill-reminder.json): Webhook → Wait → Send Email |
-| Testing | [backend/tests/](backend/tests/): 11 pytest tests, no network |
+| Testing | [backend/tests/](backend/tests/): 15 pytest tests, no network |
 
 Design decisions are logged in [docs/decisions/](docs/decisions/README.md).
 
 ## Setup
 
-Requires Docker, Python 3.12, Node 20+, Tesseract with Urdu data, and Ollama. No paid API or API key is used.
+Requires Docker, Python 3.12, Node 20+, Tesseract with Urdu data, and Ollama. The default setup uses no paid API and no key; GPT is optional.
 
 ```bash
 # 1. Database and n8n
@@ -70,7 +70,7 @@ ollama pull qwen2.5vl:3b
 cd backend
 python3.12 -m venv .venv
 .venv/bin/pip install fastapi uvicorn python-multipart opencv-python-headless pytesseract pillow \
-  langgraph ollama pydantic "psycopg[binary]" httpx python-dotenv pytest
+  langgraph ollama openai pydantic "psycopg[binary]" httpx python-dotenv pytest
 cp .env.example .env
 .venv/bin/uvicorn app.main:app --port 8000
 
@@ -87,7 +87,7 @@ cd backend && .venv/bin/pytest -v
 docker compose exec n8n n8n import:workflow --input=/workflows/bill-reminder.json
 ```
 
-Environment variables (`backend/.env`): `DATABASE_URL`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `N8N_WEBHOOK_URL` (empty = no reminder), `FRONTEND_ORIGIN`. To send real emails, open n8n at http://localhost:5678, add SMTP credentials to the "Send reminder email" node, set the recipient, and activate the workflow.
+Environment variables (`backend/.env`): `DATABASE_URL`, `LLM_PROVIDER` (`ollama` or `openai`), `OLLAMA_HOST`, `OLLAMA_MODEL`, `OPENAI_API_KEY` and `OPENAI_MODEL` (only for `openai`; the model must read images), `N8N_WEBHOOK_URL` (empty = no reminder), `FRONTEND_ORIGIN`. To send real emails, open n8n at http://localhost:5678, add SMTP credentials to the "Send reminder email" node, set the recipient, and activate the workflow.
 
 Sample bills: `backend/.venv/bin/python samples/make_samples.py` regenerates `samples/bill_2026_10.png` (clean scan) and `samples/bill_2026_11.png` (tilted 2°, noisy, like a phone photo). Both are synthetic: fake company, fake account number.
 
@@ -104,6 +104,7 @@ Sample bills: `backend/.venv/bin/python samples/make_samples.py` regenerates `sa
 - Tested on two synthetic bills only. Real bills from different distribution companies use different layouts, and Tesseract's Urdu accuracy on real phone photos is unmeasured.
 - Deskew handles up to 15° of tilt and no perspective distortion (a photo taken at an angle).
 - Re-uploading a bill for the same month overwrites the earlier one (see [decision 0003](docs/decisions/0003-postgres-upsert-per-account-month.md)).
+- With `LLM_PROVIDER=openai`, bill photos are sent to OpenAI and each bill costs money.
 - A 3B local model is less accurate than a hosted frontier model, and each call takes seconds. The validator and vision retry exist to catch its mistakes.
 - No user accounts: anyone who knows an account number can list its bills.
 - The n8n email node needs SMTP credentials added by hand before it sends anything.

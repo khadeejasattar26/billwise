@@ -1,6 +1,6 @@
 # 0004: Run the LLM locally with Ollama instead of a paid API
 - Date: 2026-11-20
-- Status: Accepted
+- Status: Accepted (amended by [0005](0005-ollama-default-gpt-optional.md): paid GPT allowed as an option)
 - Related: supersedes [0002](0002-claude-via-official-sdk-inside-langgraph.md); `backend/app/llm.py`
 
 **Context:** The project owner decided BillWise must not use any paid API. Decision 0002 called Claude, which bills per token.
