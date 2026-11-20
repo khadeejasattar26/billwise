@@ -1,7 +1,7 @@
 """The BillWise agent: a LangGraph StateGraph  extract -> validate -> (retry extract | compare) -> explain.
 
 If the cheap OCR-text extraction fails the plain-Python checks, the graph loops back once and
-asks Claude to read the original photo instead. That self-correcting loop is what makes this
+asks the vision model to read the original photo instead. That self-correcting loop is what makes this
 an agent rather than a single prompt.
 """
 
@@ -84,7 +84,7 @@ def build_graph(llm: LLM, previous_bill: PreviousBillLookup):
 
     def after_validate(state: BillState) -> Literal["extract", "compare"]:
         if state["errors"] and state["attempts"] < MAX_ATTEMPTS:
-            return "extract"  # retry, this time sending Claude the photo
+            return "extract"  # retry, this time sending the vision model the photo
         return "compare"
 
     def compare(state: BillState) -> BillState:

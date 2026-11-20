@@ -1,6 +1,6 @@
 # 0002: Call Claude through the official SDK inside a LangGraph graph
 - Date: 2026-11-20
-- Status: Accepted
+- Status: Superseded by [0004](0004-local-ollama-instead-of-paid-llm-api.md)
 - Related: `backend/app/llm.py`, `backend/app/agent.py`, `BUILD_BRIEF.md`
 
 **Context:** The workflow has a loop (retry extraction in vision mode when checks fail) and the job brief asks for LangGraph and structured LLM output.

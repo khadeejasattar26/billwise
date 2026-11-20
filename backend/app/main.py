@@ -16,7 +16,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from . import db, notify, ocr, vision  # noqa: E402  (after load_dotenv so modules see .env)
 from .agent import build_graph  # noqa: E402
-from .llm import ClaudeLLM, LLMError  # noqa: E402
+from .llm import LLMError, OllamaLLM  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 
@@ -76,10 +76,10 @@ def handle_unexpected(_: Request, exc: Exception):
 
 # ---- dependencies (overridden in tests) ------------------------------------------------
 
-_llm = ClaudeLLM()
+_llm = OllamaLLM()
 
 
-def get_llm() -> ClaudeLLM:
+def get_llm() -> OllamaLLM:
     return _llm
 
 
@@ -91,7 +91,7 @@ def health():
 
 
 @app.post("/bills", status_code=201)
-def upload_bill(image: UploadFile = File(...), llm: ClaudeLLM = Depends(get_llm)):
+def upload_bill(image: UploadFile = File(...), llm: OllamaLLM = Depends(get_llm)):
     suffix = Path(image.filename or "").suffix.lower()
     if suffix not in MEDIA_TYPES:
         raise ApiError(415, "unsupported_file_type", "Upload a .jpg, .jpeg or .png photo of the bill.")
@@ -141,7 +141,7 @@ class Question(BaseModel):
 
 
 @app.post("/bills/{bill_id}/ask")
-def ask_about_bill(bill_id: int, body: Question, llm: ClaudeLLM = Depends(get_llm)):
+def ask_about_bill(bill_id: int, body: Question, llm: OllamaLLM = Depends(get_llm)):
     bill = db.get_bill(bill_id)
     if bill is None:
         raise ApiError(404, "bill_not_found", f"No bill with id {bill_id}.")

@@ -88,7 +88,7 @@ export default function App() {
 
         {status === 'loading' && (
           <p className="rounded-lg bg-slate-100 p-6 text-center text-slate-600" role="status">
-            Cleaning the image, running OCR and asking Claude. This takes 10–30 seconds.
+            Cleaning the image, running OCR and asking the local LLM. This takes 10–60 seconds.
           </p>
         )}
 
@@ -101,7 +101,7 @@ export default function App() {
               <h2 id="explain-h" className="mb-2 text-xl font-semibold">What changed</h2>
               <p className="rounded-lg bg-emerald-50 p-4 leading-relaxed">{result.bill.explanation}</p>
               <p className="mt-2 text-sm text-slate-500">
-                Read with {result.bill.extraction_mode === 'vision' ? 'Claude vision (OCR retry)' : 'OCR + Claude'} in{' '}
+                Read with {result.bill.extraction_mode === 'vision' ? 'vision model (OCR retry)' : 'OCR + LLM'} in{' '}
                 {result.attempts} attempt{result.attempts > 1 ? 's' : ''}.{' '}
                 {result.reminder_scheduled ? 'Due-date reminder scheduled.' : 'Reminder not scheduled (n8n not reachable).'}
               </p>
