@@ -15,7 +15,7 @@ export function Hero({ t, children }: { t: Strings; children: ReactNode }) {
         <div className="space-y-3 lg:col-start-1">
           <p className="inline-block rounded-full bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-800">{t.heroEyebrow}</p>
           {/* Nastaliq needs far more line height than Latin, or stacked lines collide. */}
-          <h1 id="hero-h" className="text-3xl font-extrabold text-ink ltr:leading-tight ltr:sm:text-5xl rtl:leading-[1.9] rtl:sm:text-4xl">
+          <h1 id="hero-h" className="text-3xl font-extrabold text-ink ltr:leading-tight ltr:sm:text-5xl rtl:leading-[2.25] rtl:sm:text-4xl">
             {t.heroTitle}
           </h1>
         </div>
