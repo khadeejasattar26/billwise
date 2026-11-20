@@ -1,10 +1,22 @@
 # BillWise
 
-BillWise reads a photo of a Pakistani electricity bill (English + Urdu), pulls out the seven key fields, checks that they add up, compares them with last month, explains the change in plain words, and schedules a due-date reminder.
+**بجلی کا بل، آسان زبان میں** · Your electricity bill, in plain words.
 
-![BillWise showing the November sample bill: extracted fields, explanation, amount chart and an answered question](docs/images/billwise-result.png)
+Many Pakistani households, especially older people, can't tell from a bill how much electricity they used or why it went up. BillWise reads a photo of the bill (English + Urdu labels), checks the numbers, compares with last month, and explains the change **in simple Urdu** (or English): how many more units, how many more rupees, what one unit cost, and when to pay. A listen button reads the explanation aloud.
 
-Upload a photo → get a checked table of fields, a 2–3 sentence explanation ("You used 320 units, 28% more than October…"), a month-by-month chart, and a box to ask questions about your bills.
+| Urdu (default) | English | Phone |
+|---|---|---|
+| ![BillWise in Urdu: summary cards, plain-Urdu explanation, cost per unit, what-is-a-unit help, monthly chart and an Urdu answer](docs/images/billwise-urdu.png) | ![The same page in English](docs/images/billwise-english.png) | ![The Urdu page at phone width](docs/images/billwise-phone.png) |
+
+### What a household sees
+
+- **At a glance:** three large cards for units, bill and due date, each with "▲ 70 more than last month".
+- **In plain words:** 2–3 sentences in everyday Urdu, with no percentages and no jargon, e.g. "آپ نے پچھلے مہینے کے مقابلے میں 70 یونٹ زیادہ بجلی استعمال کی ہے، اس لیے آپ کا بل 2,570 روپے زیادہ ہے۔"
+- **🔊 سنیں (Listen):** reads the explanation aloud with the phone's built-in voice, slightly slower than normal.
+- **What did one unit cost?** The average price per unit this month vs last month, calculated in code.
+- **What is a unit?** One unit equals a ceiling fan for about 13 hours; this month's extra units equal a 1.5-ton AC for about 47 hours.
+- **Ask about your bill** in Urdu, Roman Urdu or English. The answer comes back in the same language.
+- **اردو / English switch:** right-to-left layout and the Noto Nastaliq Urdu font for Urdu; the choice is remembered.
 
 ## How it works
 
@@ -43,9 +55,9 @@ The validate step checks: all required fields present; `units == current_reading
 | Agent workflow (LangGraph) | [backend/app/agent.py](backend/app/agent.py): `StateGraph` with a conditional retry edge |
 | Python + FastAPI | [backend/app/main.py](backend/app/main.py): upload limits, one error shape, CORS |
 | PostgreSQL | [backend/app/db.py](backend/app/db.py), [backend/schema.sql](backend/schema.sql): parameterised SQL, upsert per account-month |
-| React + TypeScript + Tailwind | [frontend/src/App.tsx](frontend/src/App.tsx): Tailwind v4, loading/empty/error/success states, chart from plain divs |
+| React + TypeScript + Tailwind | [frontend/src/App.tsx](frontend/src/App.tsx), [frontend/src/i18n.ts](frontend/src/i18n.ts): Urdu-first right-to-left UI with an English switch, large text for older users, browser speech, loading/empty/error/success states, chart from plain divs |
 | Workflow automation (n8n) | [n8n/bill-reminder.json](n8n/bill-reminder.json): Webhook → Wait → Send Email |
-| Testing | [backend/tests/](backend/tests/): 16 pytest tests, no network |
+| Testing | [backend/tests/](backend/tests/): 22 pytest tests, no network |
 
 Design decisions are logged in [docs/decisions/](docs/decisions/README.md).
 
@@ -56,6 +68,8 @@ Requires Docker, Python 3.12, Node 20+, Tesseract with Urdu data, and Ollama. Th
 ```bash
 # 1. Database and n8n
 docker compose up -d            # Postgres on localhost:5433, n8n on localhost:5678
+# Only if your database was created before the Urdu update:
+docker compose exec -T db psql -U billwise -d billwise < backend/migrations/001_add_explanation_ur.sql
 
 # 2. Tesseract + Urdu (macOS)
 brew install python@3.12 tesseract
@@ -95,11 +109,11 @@ Sample bills: `backend/.venv/bin/python samples/make_samples.py` regenerates `sa
 
 ## 1-minute demo script
 
-1. **(10 s)** "BillWise reads a Pakistani electricity bill photo, in English and Urdu, and explains it." Open http://localhost:5173.
-2. **(15 s)** Upload `samples/bill_2026_10.png`. Point at the fields table: "OpenCV cleans the image, Tesseract reads English and Urdu, a local LLM turns the text into typed fields."
-3. **(15 s)** Upload `samples/bill_2026_11.png`, the tilted noisy one. "Deskew straightened it. Python checked that units equal current minus previous reading. If that check fails, the LangGraph agent loops back once and lets the vision model read the photo directly." Point at the "Read with…" line under the explanation.
-4. **(10 s)** Point at the explanation and the chart: "It compares with October from Postgres: 28% more units, 33% more money."
-5. **(10 s)** Ask "Why is this month higher?" in the box. Then show n8n: "Every saved bill hits this webhook, which waits until three days before the due date and sends a reminder."
+1. **(10 s)** "Many people in Pakistan, especially older people, can't read their electricity bill. BillWise explains it in simple Urdu." Open http://localhost:5173.
+2. **(15 s)** Upload `samples/bill_2026_10.png`, then `samples/bill_2026_11.png` (the tilted, noisy one). "OpenCV straightens and cleans the photo, Tesseract reads English and Urdu, and an LLM turns the text into typed fields. Python checks that units equal current minus previous reading; if not, the LangGraph agent re-reads the photo itself."
+3. **(15 s)** Point at the cards and the Urdu explanation, and press **🔊 سنیں**. "70 more units, 2,570 more rupees, in words my grandmother understands. Every number is calculated in code; the LLM only puts it into words."
+4. **(10 s)** Open **ایک یونٹ کیا ہے؟**: "The extra units equal 47 hours of a 1.5-ton AC."
+5. **(10 s)** Type "mera bill kitna zyada aya?" in the Ask box: it answers in Urdu. Switch to English to show the same page in English.
 
 ## Measured results
 
@@ -122,6 +136,9 @@ On the degraded photo Tesseract read the meter readings as 15069 → 15250; the 
 - Deskew handles up to 15° of tilt and no perspective distortion (a photo taken at an angle).
 - Re-uploading a bill for the same month overwrites the earlier one (see [decision 0003](docs/decisions/0003-postgres-upsert-per-account-month.md)).
 - With `LLM_PROVIDER=openai`, bill photos are sent to OpenAI and each bill costs money.
+- Urdu quality depends on the provider. GPT writes natural Urdu explanations and answers. The free 3B local model's Urdu is unusable (it repeats words), so with Ollama the Urdu explanation comes from a fixed template filled with the same numbers, and the Ask box answers in English.
+- The listen button needs an Urdu voice on the device. Many Android phones and iPhones have one; many desktop browsers don't, and then the page says so.
+- Tariff slabs, the 200-unit "protected consumer" rule and taxes are not explained: those rules change often, and wrong tariff advice would mislead people.
 - A 3B local model is less accurate than a hosted frontier model, and each call takes seconds. The validator and vision retry exist to catch its mistakes.
 - No user accounts: anyone who knows an account number can list its bills.
 - The n8n email node needs SMTP credentials added by hand before it sends anything.

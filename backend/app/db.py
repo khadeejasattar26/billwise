@@ -10,7 +10,7 @@ from psycopg.rows import dict_row
 DEFAULT_URL = "postgresql://billwise:billwise@localhost:5433/billwise"
 
 COLUMNS = (
-    "id, account_no, billing_month, units, amount, due_date, explanation, "
+    "id, account_no, billing_month, units, amount, due_date, explanation, explanation_ur, "
     "warnings, extraction_mode, created_at"
 )
 
@@ -27,6 +27,7 @@ def upsert_bill(
     amount: float,
     due_date: date,
     explanation: str,
+    explanation_ur: str,
     warnings: list[str],
     extraction_mode: str,
     ocr_text: str,
@@ -34,13 +35,14 @@ def upsert_bill(
     """Insert the bill, or overwrite the existing one for the same account and month."""
     sql = f"""
         INSERT INTO bills (account_no, billing_month, units, amount, due_date,
-                           explanation, warnings, extraction_mode, ocr_text)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                           explanation, explanation_ur, warnings, extraction_mode, ocr_text)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (account_no, billing_month) DO UPDATE SET
             units = EXCLUDED.units,
             amount = EXCLUDED.amount,
             due_date = EXCLUDED.due_date,
             explanation = EXCLUDED.explanation,
+            explanation_ur = EXCLUDED.explanation_ur,
             warnings = EXCLUDED.warnings,
             extraction_mode = EXCLUDED.extraction_mode,
             ocr_text = EXCLUDED.ocr_text,
@@ -48,7 +50,7 @@ def upsert_bill(
         RETURNING {COLUMNS}
     """
     params = (account_no, billing_month, units, amount, due_date,
-              explanation, warnings, extraction_mode, ocr_text)
+              explanation, explanation_ur, warnings, extraction_mode, ocr_text)
     with connect() as conn:
         return conn.execute(sql, params).fetchone()
 

@@ -7,3 +7,4 @@
 | [0003](0003-postgres-upsert-per-account-month.md) | Store one bill per account per month with a Postgres upsert | Accepted |
 | [0004](0004-local-ollama-instead-of-paid-llm-api.md) | Run the LLM locally with Ollama instead of a paid API | Accepted, amended by 0005 |
 | [0005](0005-ollama-default-gpt-optional.md) | Keep local Ollama as the default and allow GPT as an optional provider | Accepted |
+| [0006](0006-urdu-first-plain-language-explanations.md) | Explain bills in plain Urdu first, with numbers computed in code | Accepted |

@@ -17,6 +17,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 from . import db, notify, ocr, vision  # noqa: E402  (after load_dotenv so modules see .env)
 from .agent import build_graph  # noqa: E402
 from .llm import LLMError, make_llm  # noqa: E402
+from .schemas import cost_per_unit  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 
@@ -116,7 +117,8 @@ def upload_bill(image: UploadFile = File(...), llm=Depends(get_llm)):
 
     bill = db.upsert_bill(
         account_no=fields.account_no, billing_month=fields.billing_month, units=fields.units,
-        amount=fields.amount, due_date=fields.due_date, explanation=state["explanation"],
+        amount=fields.amount, due_date=fields.due_date, explanation=state["explanation"].english,
+        explanation_ur=state["explanation"].urdu,
         warnings=warnings, extraction_mode=state["mode"], ocr_text=ocr_text,
     )
     bill_json = _jsonable(bill)
@@ -126,6 +128,7 @@ def upload_bill(image: UploadFile = File(...), llm=Depends(get_llm)):
         "bill": bill_json,
         "fields": fields.model_dump(mode="json"),
         "comparison": state["comparison"].model_dump(mode="json") if state.get("comparison") else None,
+        "cost_per_unit": cost_per_unit(fields.amount, fields.units),
         "attempts": state["attempts"],
         "reminder_scheduled": reminder_scheduled,
     }

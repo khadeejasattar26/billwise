@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS bills (
   amount           NUMERIC(12, 2) NOT NULL,
   due_date         DATE        NOT NULL,
   explanation      TEXT        NOT NULL,
+  explanation_ur   TEXT        NOT NULL DEFAULT '',
   warnings         TEXT[]      NOT NULL DEFAULT '{}',
   extraction_mode  TEXT        NOT NULL CHECK (extraction_mode IN ('ocr', 'vision')),
   ocr_text         TEXT        NOT NULL,

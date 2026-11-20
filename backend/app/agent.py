@@ -10,7 +10,7 @@ from typing import Any, Callable, Literal, Protocol, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from .schemas import BillFields, Comparison
+from .schemas import BillFields, Comparison, Explanation, cost_per_unit
 
 MAX_ATTEMPTS = 2  # one OCR-text attempt + at most one vision retry
 
@@ -18,7 +18,7 @@ MAX_ATTEMPTS = 2  # one OCR-text attempt + at most one vision retry
 class LLM(Protocol):
     def extract_from_text(self, ocr_text: str) -> BillFields: ...
     def extract_from_image(self, image_bytes: bytes, media_type: str) -> BillFields: ...
-    def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> str: ...
+    def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> Explanation: ...
 
 
 PreviousBillLookup = Callable[[str, date], dict[str, Any] | None]
@@ -34,7 +34,7 @@ class BillState(TypedDict, total=False):
     errors: list[str]
     warnings: list[str]
     comparison: Comparison | None
-    explanation: str
+    explanation: Explanation
 
 
 def validate_fields(fields: BillFields) -> list[str]:
@@ -100,11 +100,14 @@ def build_graph(llm: LLM, previous_bill: PreviousBillLookup):
             previous_amount=float(prev["amount"]),
             units_change_pct=percent_change(prev["units"], fields.units),
             amount_change_pct=percent_change(float(prev["amount"]), fields.amount),
+            units_diff=fields.units - prev["units"],
+            amount_diff=round(fields.amount - float(prev["amount"]), 2),
+            previous_cost_per_unit=cost_per_unit(float(prev["amount"]), prev["units"]),
         )}
 
     def explain(state: BillState) -> BillState:
-        text = llm.explain(state["fields"], state.get("comparison"), state.get("warnings", []))
-        return {"explanation": text}
+        explanation = llm.explain(state["fields"], state.get("comparison"), state.get("warnings", []))
+        return {"explanation": explanation}
 
     graph = StateGraph(BillState)
     graph.add_node("extract", extract)

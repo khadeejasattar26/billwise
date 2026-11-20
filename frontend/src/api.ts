@@ -18,6 +18,7 @@ export type Bill = {
   amount: number
   due_date: string
   explanation: string
+  explanation_ur: string
   warnings: string[]
   extraction_mode: 'ocr' | 'vision'
   created_at: string
@@ -29,12 +30,16 @@ export type Comparison = {
   previous_amount: number
   units_change_pct: number | null
   amount_change_pct: number | null
+  units_diff: number
+  amount_diff: number
+  previous_cost_per_unit: number | null
 }
 
 export type UploadResult = {
   bill: Bill
   fields: BillFields
   comparison: Comparison | null
+  cost_per_unit: number | null
   attempts: number
   reminder_scheduled: boolean
 }

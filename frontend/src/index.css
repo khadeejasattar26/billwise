@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+@theme {
+  --font-urdu: "Noto Nastaliq Urdu", "Geeza Pro", serif;
+}
+
+/* Nastaliq script has tall ascenders and descenders; normal line height makes lines collide. */
+:lang(ur) {
+  font-family: var(--font-urdu);
+  line-height: 2.3;
+}
+
+/* Numbers, codes and English inside Urdu text stay in a plain Latin font so digits read clearly. */
+:lang(ur) .latin {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.6;
+}

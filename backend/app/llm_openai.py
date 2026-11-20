@@ -5,14 +5,13 @@ agent and API do not change. The key is read from OPENAI_API_KEY in backend/.env
 """
 
 import base64
-import json
 import os
 from typing import Any
 
 import openai
 
-from .llm import ANSWER_SYSTEM, EXPLAIN_SYSTEM, EXTRACT_SYSTEM, LLMError, explain_facts
-from .schemas import BillFields, Comparison
+from .llm import ANSWER_SYSTEM, EXPLAIN_SYSTEM, EXTRACT_SYSTEM, LLMError, answer_prompt, explain_facts
+from .schemas import BillFields, Comparison, Explanation
 
 
 class OpenAILLM:
@@ -44,14 +43,17 @@ class OpenAILLM:
         ])
 
     def _extract(self, content: str | list[dict[str, Any]]) -> BillFields:
+        return self._structured(EXTRACT_SYSTEM, content, BillFields)
+
+    def _structured(self, system: str, content: str | list[dict[str, Any]], model: type):
         client = self.client
         try:
-            # response_format=BillFields turns on strict structured output: the reply must match the schema.
+            # response_format=<Pydantic model> turns on strict structured output: the reply must match.
             completion = self._guard(lambda: client.chat.completions.parse(
                 model=self.model,
-                messages=[{"role": "system", "content": EXTRACT_SYSTEM},
+                messages=[{"role": "system", "content": system},
                           {"role": "user", "content": content}],
-                response_format=BillFields,
+                response_format=model,
             ))
         except openai.LengthFinishReasonError as exc:
             raise LLMError("The model's answer was cut off at the output limit.") from exc
@@ -61,20 +63,16 @@ class OpenAILLM:
         if message.refusal:
             raise LLMError(f"The model declined: {message.refusal}")
         if message.parsed is None:
-            raise LLMError("The model returned no structured bill fields.")
+            raise LLMError(f"The model returned no structured {model.__name__}.")
         return message.parsed
 
     # ---- free text -------------------------------------------------------------------
 
-    def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> str:
-        return self._text(EXPLAIN_SYSTEM, f"Facts:\n{explain_facts(fields, comparison, warnings)}")
+    def explain(self, fields: BillFields, comparison: Comparison | None, warnings: list[str]) -> Explanation:
+        return self._structured(EXPLAIN_SYSTEM, f"Facts:\n{explain_facts(fields, comparison, warnings)}", Explanation)
 
     def answer(self, question: str, history: list[dict[str, Any]]) -> str:
-        prompt = (
-            f"Bill history, oldest first:\n{json.dumps(history, indent=2, default=str)}\n\n"
-            f"Question: {question}"
-        )
-        return self._text(ANSWER_SYSTEM, prompt)
+        return self._text(ANSWER_SYSTEM, answer_prompt(question, history))
 
     def _text(self, system: str, prompt: str) -> str:
         client = self.client

@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.agent import build_graph
-from app.schemas import BillFields
+from app.schemas import BillFields, Explanation
 
 GOOD = BillFields(account_no="0000-DEMO-0421", billing_month=date(2026, 11, 1),
                   previous_reading=15480, current_reading=15800, units=320,
@@ -27,7 +27,7 @@ class FakeLLM:
 
     def explain(self, fields, comparison, warnings):
         self.calls.append("explain")
-        return "explained"
+        return Explanation(english="explained", urdu="وضاحت")
 
 
 def last_month(account_no, billing_month):
@@ -67,3 +67,16 @@ def test_compare_reports_percent_change_against_last_month():
     state = run(FakeLLM(text_result=GOOD, image_result=GOOD))
     assert state["comparison"].units_change_pct == 28.0
     assert state["comparison"].amount_change_pct == 32.7
+
+
+def test_compare_reports_plain_differences_and_last_months_price_per_unit():
+    comparison = run(FakeLLM(text_result=GOOD, image_result=GOOD))["comparison"]
+    assert comparison.units_diff == 70
+    assert comparison.amount_diff == 2570.0
+    assert comparison.previous_cost_per_unit == 31.4
+
+
+def test_the_graph_returns_the_explanation_in_english_and_urdu():
+    explanation = run(FakeLLM(text_result=GOOD, image_result=GOOD))["explanation"]
+    assert explanation.english == "explained"
+    assert explanation.urdu == "وضاحت"
