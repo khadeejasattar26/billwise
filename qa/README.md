@@ -5,7 +5,7 @@ End-to-end checks run before a release, in addition to the unit tests in `backen
 | Suite | What it covers |
 |---|---|
 | `api_qa.py` | 42 API cases: bad files, size limits, consent, not-a-bill photos (no invented bills), rotated/tiny/mislabelled photos, Ask and speech validation, prompt injection, CORS, path traversal, rate limits and header spoofing, nothing stored in public mode |
-| `ui_qa.py` | 21 browser cases in Edge: Urdu/RTL load, consent gate, keyboard-only use and visible focus, language persistence, Urdu error messages, stale results, phone widths 320/375/768 px, axe-core accessibility scan |
+| `ui_qa.py` | 22 browser cases in Edge: Urdu/RTL load, consent gate, keyboard-only use (every Tab stop visible) and visible focus, language persistence, Urdu error messages, stale results, phone widths 320/375/768 px, axe-core accessibility scan |
 
 ```bash
 backend/.venv/bin/python qa/make_qa_images.py /tmp/qa-images

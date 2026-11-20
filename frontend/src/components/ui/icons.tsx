@@ -1,0 +1,36 @@
+// Inline SVG icons: identical on every phone (emoji are not), sized by font, and hidden from screen
+// readers because each one sits next to a text label.
+
+type IconProps = { className?: string }
+
+function Svg({ className = 'size-6', children }: IconProps & { children: React.ReactNode }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+         strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      {children}
+    </svg>
+  )
+}
+
+export const BoltIcon = (p: IconProps) => <Svg {...p}><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" /></Svg>
+export const CameraIcon = (p: IconProps) => (
+  <Svg {...p}><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" /><circle cx="12" cy="13" r="3.5" /></Svg>
+)
+export const SpeakerIcon = (p: IconProps) => (
+  <Svg {...p}><path d="M11 5 6 9H3v6h3l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" /></Svg>
+)
+export const StopIcon = (p: IconProps) => <Svg {...p}><rect x="6" y="6" width="12" height="12" rx="2" /></Svg>
+export const ShieldIcon = (p: IconProps) => <Svg {...p}><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3z" /><path d="m9 12 2 2 4-4" /></Svg>
+export const AlertIcon = (p: IconProps) => <Svg {...p}><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></Svg>
+export const CheckIcon = (p: IconProps) => <Svg {...p}><path d="m5 12 5 5 9-10" /></Svg>
+export const ChevronIcon = (p: IconProps) => <Svg {...p}><path d="m6 9 6 6 6-6" /></Svg>
+export const ArrowUpIcon = (p: IconProps) => <Svg {...p}><path d="M12 19V5M5 12l7-7 7 7" /></Svg>
+export const ArrowDownIcon = (p: IconProps) => <Svg {...p}><path d="M12 5v14M5 12l7 7 7-7" /></Svg>
+export const MessageIcon = (p: IconProps) => <Svg {...p}><path d="M4 5h16v11H8l-4 4V5z" /></Svg>
+export const CodeIcon = (p: IconProps) => <Svg {...p}><path d="m8 7-5 5 5 5M16 7l5 5-5 5" /></Svg>
+export const ReceiptIcon = (p: IconProps) => (
+  <Svg {...p}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" /><path d="M9 8h6M9 12h6M9 16h3" /></Svg>
+)
+export const ChartIcon = (p: IconProps) => <Svg {...p}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></Svg>
+export const CalendarIcon = (p: IconProps) => <Svg {...p}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></Svg>
+export const SparkIcon = (p: IconProps) => <Svg {...p}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" /></Svg>

@@ -43,13 +43,21 @@ with sync_playwright() as p:
     check("U1 no console errors on load", not errors, "; ".join(errors)[:200])
 
     # U2 consent + keyboard
-    upload_btn = page.locator("section button").first
+    upload_btn = page.get_by_role("button", name="بل کی تصویر اپ لوڈ کریں")
     check("U2 upload button disabled before consent", upload_btn.is_disabled())
-    page.keyboard.press("Tab")  # language switch
-    page.keyboard.press("Tab")  # consent checkbox (the hidden file input must not take a Tab stop)
-    focused = page.evaluate("document.activeElement.type")
+    # Tab from the top until the consent box; every stop on the way must be visible (no invisible stops).
+    invisible, focused = [], None
+    for _ in range(15):
+        page.keyboard.press("Tab")
+        info = page.evaluate("(() => { const e = document.activeElement; const r = e.getBoundingClientRect(); return {type: e.type || e.tagName, w: r.width, h: r.height, label: (e.innerText || e.getAttribute('aria-label') || '').slice(0, 20)} })()")
+        if info["w"] < 2 or info["h"] < 2:
+            invisible.append(info)
+        if info["type"] == "checkbox":
+            focused = "checkbox"
+            break
     page.keyboard.press("Space")
     check("U2 consent reachable by keyboard (Tab) and ticked with Space", focused == "checkbox" and page.get_by_role("checkbox").is_checked(), f"focused={focused}")
+    check("U2 every Tab stop before it is visible", not invisible, str(invisible))
     page.keyboard.press("Tab")
     outline = page.evaluate("getComputedStyle(document.activeElement).outlineStyle + ' ' + getComputedStyle(document.activeElement).outlineWidth")
     check("U2 focused upload button shows a visible focus outline", "none" not in outline and not outline.endswith(" 0px"), outline)
@@ -77,13 +85,13 @@ with sync_playwright() as p:
     check("U5 results show reasons, breakdown and chart", page.locator("#why-h").is_visible() and page.locator("#charges-h").is_visible() and page.locator("#chart-h").is_visible())
     page.fill("#question", "میرا بل کیوں بڑھا؟")
     page.locator("form button[type=submit]").click()
-    answer = page.locator("section[aria-labelledby=ask-h] p.bg-slate-100")
+    answer = page.locator("[data-testid=answer]")
     answer.wait_for(timeout=60_000)
     check("U5 Urdu answer is laid out right-to-left", answer.get_attribute("dir") == "rtl")
     first_answer = answer.inner_text()
     upload(page, f"{SAMPLES}/bill_2026_11.png")
     page.wait_for_function("document.querySelector('#plain-h') && !document.querySelector('[role=status]')", timeout=150_000)
-    stale_answer = page.locator("section[aria-labelledby=ask-h] p.bg-slate-100").count() > 0
+    stale_answer = page.locator("[data-testid=answer]").count() > 0
     stale_question = page.input_value("#question")
     check("U6 a new upload clears the previous bill's question and answer", not stale_answer and stale_question == "", f"old answer still shown={stale_answer}, question box='{stale_question}'")
     upload(page, f"{SAMPLES}/bill_2026_11.png")
@@ -124,9 +132,9 @@ with sync_playwright() as p:
     check("U10 Ask is disabled for questions under 3 characters", page.locator("form button[type=submit]").is_disabled())
     page.fill("#question", "Why is my bill so high?")
     page.press("#question", "Enter")
-    page.locator("section[aria-labelledby=ask-h] p.bg-slate-100").wait_for(timeout=60_000)
+    page.locator("[data-testid=answer]").wait_for(timeout=60_000)
     check("U10 pressing Enter sends the question; English answer is left-to-right",
-          page.locator("section[aria-labelledby=ask-h] p.bg-slate-100").get_attribute("dir") == "ltr")
+          page.locator("[data-testid=answer]").get_attribute("dir") == "ltr")
     page.close()
     browser.close()
 

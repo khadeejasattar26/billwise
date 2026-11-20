@@ -71,9 +71,9 @@ The validate step checks: all required fields present; `units == current_reading
 | Agent workflow (LangGraph) | [backend/app/agent.py](backend/app/agent.py): `StateGraph` with a conditional retry edge |
 | Python + FastAPI | [backend/app/main.py](backend/app/main.py): upload limits, one error shape, CORS, `/speech` audio endpoint; [backend/app/insights.py](backend/app/insights.py): rule-based reasons |
 | PostgreSQL | [backend/app/db.py](backend/app/db.py), [backend/schema.sql](backend/schema.sql): parameterised SQL, upsert per account-month |
-| React + TypeScript + Tailwind | [frontend/src/App.tsx](frontend/src/App.tsx), [frontend/src/i18n.ts](frontend/src/i18n.ts): Urdu-first right-to-left UI with an English switch, large text for older users, browser speech, loading/empty/error/success states, chart from plain divs |
+| React + TypeScript + Tailwind | [frontend/src/](frontend/src/): a product page (header, hero with upload, how it works, what it checks, FAQ, footer) and the result view; components by feature, custom hooks, design tokens in `index.css`, SVG icons, Urdu-first right-to-left with an English switch, server Urdu voice, plain-div chart; 19 Vitest tests |
 | Workflow automation (n8n) | [n8n/bill-reminder.json](n8n/bill-reminder.json): Webhook → Wait → Send Email |
-| Testing | [backend/tests/](backend/tests/): 57 pytest tests, no network; [qa/](qa/README.md): 42 API and 21 browser end-to-end checks |
+| Testing | [backend/tests/](backend/tests/): 59 pytest tests; [frontend](frontend/src/): 19 Vitest tests; [qa/](qa/README.md): 42 API and 22 browser end-to-end checks |
 
 Design decisions are logged in [docs/decisions/](docs/decisions/README.md).
 
@@ -116,6 +116,7 @@ npm run dev                     # http://localhost:5173
 
 # 6. Tests (use a fake LLM, no Ollama needed)
 cd backend && .venv/bin/pytest -v
+cd ../frontend && npm test
 
 # 7. n8n workflow
 docker compose exec n8n n8n import:workflow --input=/workflows/bill-reminder.json
@@ -187,12 +188,12 @@ Before deployment the whole app was tested as a release candidate (results on 20
 
 | Layer | Result |
 |---|---|
-| Unit tests (`backend/tests`) | 57 passed |
+| Unit tests (`backend/tests`, frontend Vitest) | 59 + 19 passed |
 | Type check, lint, build | clean |
 | Dependency audits (`npm audit`, `pip-audit`) | 0 known vulnerabilities |
 | Secret scan (built site, git history) | no keys found |
 | API end-to-end ([qa/api_qa.py](qa/api_qa.py)) | 42 / 42 |
-| Browser end-to-end ([qa/ui_qa.py](qa/ui_qa.py)) | 21 / 21, including 0 axe-core accessibility violations |
+| Browser end-to-end ([qa/ui_qa.py](qa/ui_qa.py)) | 22 / 22, including 0 axe-core accessibility violations |
 
 Bugs found and fixed in that pass:
 - **Critical:** a blank page or a noise photo produced an invented bill with plausible amounts. The model now reports `is_electricity_bill`, the prompt forbids guessing, and a page with almost no OCR text goes straight to the photo.

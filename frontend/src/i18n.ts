@@ -1,11 +1,51 @@
 // Every piece of page text in Urdu and English. Urdu is the default: BillWise is for Pakistani households.
 
+import { formatDate, formatNumber } from './lib/format'
+
 export type Lang = 'ur' | 'en'
 
 /** Wrap Latin text (file names, "5 MB") inside Urdu so right-to-left layout can't reorder it. */
 const iso = (s: string) => `\u2068${s}\u2069`
 
 const ur = {
+  // ---- page chrome and landing sections
+  skipToContent: 'مواد پر جائیں',
+  navHow: 'یہ کیسے کام کرتا ہے',
+  navChecks: 'کیا دیکھا جاتا ہے',
+  navFaq: 'سوالات',
+  heroEyebrow: 'پاکستان کے بجلی کے بلوں کے لیے',
+  heroTitle: 'اپنا بجلی کا بل آسان اردو میں سمجھیں',
+  heroText: 'بل کی تصویر لیں۔ BillWise بتاتا ہے کہ اس مہینے کتنی بجلی استعمال ہوئی، بل کیوں زیادہ یا کم ہے، اور کب تک ادا کرنا ہے، پڑھ کر بھی اور سنا کر بھی۔',
+  badges: ['مفت', 'اردو اور انگریزی', 'آواز میں سنیں', 'بل محفوظ نہیں کیا جاتا'],
+  uploadCardTitle: 'اپنا بل دکھائیں',
+  howTitle: 'یہ کیسے کام کرتا ہے',
+  howSteps: [
+    { title: 'بل کی تصویر لیں', text: 'فون کے کیمرے سے پورے بل کی صاف اور سیدھی تصویر۔' },
+    { title: 'بل پڑھ کر جانچا جاتا ہے', text: 'یونٹ، رقم، بقایا اور پچھلے 12 مہینوں کی تاریخ پڑھی جاتی ہے، اور حساب دوبارہ جوڑ کر دیکھا جاتا ہے۔' },
+    { title: 'آسان اردو میں جواب', text: 'بل کیوں ایسا ہے، سادہ الفاظ میں، اور آپ اسے سن بھی سکتے ہیں۔' },
+  ],
+  checksTitle: 'BillWise آپ کے بل میں کیا دیکھتا ہے',
+  checks: [
+    { title: 'پچھلا بقایا', text: 'پچھلے بل کی جو رقم ادا نہیں ہوئی، وہ کتنی ہے اور کس مہینے کی ہے۔' },
+    { title: '200 یونٹ کی حد', text: 'آپ کا کنکشن پروٹیکٹڈ ہے یا نہیں، اور کس مہینے کی وجہ سے ریٹ بڑھا۔' },
+    { title: 'پچھلے مہینوں سے موازنہ', text: 'پچھلے مہینے اور پچھلے سال اسی مہینے کے مقابلے میں یونٹ کا فرق۔' },
+    { title: 'فیول ایڈجسٹمنٹ، ٹیکس اور جرمانہ', text: 'FPA، ٹیکس، سبسڈی اور دیر سے ادائیگی پر لگنے والی اضافی رقم۔' },
+  ],
+  companiesTitle: 'کن کمپنیوں کے بل',
+  companiesText: 'سرکاری بجلی کمپنیوں کے بل ایک ہی ڈیزائن (PITC) کے ہوتے ہیں اور BillWise انہیں پڑھتا ہے۔ K-Electric کے بل کا ڈیزائن مختلف ہے اور ابھی پوری طرح آزمایا نہیں گیا۔',
+  faqTitle: 'عام سوالات',
+  faq: [
+    { q: 'کیا یہ مفت ہے؟', a: 'جی ہاں، BillWise استعمال کرنا مفت ہے۔' },
+    { q: 'کیا میرا بل محفوظ کیا جاتا ہے؟', a: 'نہیں۔ ہمارے سرور پر آپ کا بل، نام یا نمبر محفوظ نہیں کیے جاتے۔ تصویر پڑھنے کے لیے OpenAI کو بھیجی جاتی ہے اور سننے کا متن Microsoft کو۔ صفحہ بند کرنے پر نتیجہ ختم ہو جاتا ہے۔' },
+    { q: 'کیا جواب ہمیشہ درست ہوتا ہے؟', a: 'زیادہ تر، مگر دھندلی تصویر سے نمبر غلط پڑھے جا سکتے ہیں۔ اسی لیے BillWise حساب جوڑ کر جانچتا ہے اور شک ہو تو خبردار کرتا ہے۔ ادائیگی سے پہلے اپنا اصل بل ضرور دیکھیں۔' },
+    { q: 'پروٹیکٹڈ اور ان پروٹیکٹڈ کیا ہے؟', a: 'نیپرا کے قاعدے کے مطابق جو گھر پچھلے 6 مہینے ہر مہینے 200 یا اس سے کم یونٹ استعمال کرے، اسے کم ریٹ ملتا ہے۔ کسی ایک مہینے 200 سے زیادہ ہونے پر اگلے 6 مہینے زیادہ ریٹ لگ سکتا ہے۔' },
+    { q: 'پہلی بار اتنی دیر کیوں لگتی ہے؟', a: 'یہ مفت سرور ہے جو کچھ دیر استعمال نہ ہو تو سو جاتا ہے۔ پہلی بار اسے جاگنے میں ایک سے دو منٹ لگ سکتے ہیں، اس کے بعد تقریباً 20 سیکنڈ۔' },
+  ],
+  footerTagline: 'بجلی کا بل، آسان زبان میں۔',
+  footerDisclaimer: 'BillWise کسی بجلی کمپنی، نیپرا یا حکومت سے منسلک نہیں۔ یہ ایک ڈیمو ہے: ادائیگی سے پہلے ہمیشہ اپنا اصل بل دیکھیں۔',
+  sourceCode: 'سورس کوڈ',
+  loadingSteps: ['تصویر پڑھی جا رہی ہے…', 'حساب جانچا جا رہا ہے…', 'آسان اردو میں وضاحت لکھی جا رہی ہے…'],
+  resultTitle: 'آپ کے بل کا نتیجہ',
   tagline: 'بجلی کا بل، آسان زبان میں',
   intro: 'بل کی تصویر لیں، ہم آسان اردو میں بتائیں گے کہ بل کتنا ہے اور کیوں۔',
   switchTo: 'English',
@@ -35,8 +75,8 @@ const ur = {
   firstBill: 'پہلا بل، موازنہ اگلے مہینے',
   rupees: (n: string) => `${n} روپے`,
   plainWords: 'آسان الفاظ میں',
-  listen: '🔊 سنیں',
-  stop: '⏹ روکیں',
+  listen: 'سنیں',
+  stop: 'روکیں',
   issuedBy: 'بل جاری کرنے والی کمپنی',
   chargesTitle: 'آپ کا بل کس چیز سے بنا ہے؟',
   chargeCurrent: 'اس مہینے کی بجلی (موجودہ بل)',
@@ -47,7 +87,7 @@ const ur = {
   afterDue: (amount: string) => `مقررہ تاریخ کے بعد: ${amount}`,
   whyTitle: 'آپ کا بل ایسا کیوں ہے؟',
   whyFromPrinted: 'پچھلے مہینوں کا موازنہ بل پر چھپی تاریخ (Bill History) سے کیا گیا ہے۔',
-  listenLoading: '⏳ آواز تیار ہو رہی ہے…',
+  listenLoading: 'آواز تیار ہو رہی ہے…',
   listenFailed: 'آواز نہیں چل سکی۔ انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔',
   technical: 'تکنیکی معلومات',
   perUnitTitle: 'ایک یونٹ کتنے کا پڑا؟',
@@ -109,6 +149,43 @@ const ur = {
 export type Strings = typeof ur
 
 const en: Strings = {
+  skipToContent: 'Skip to content',
+  navHow: 'How it works',
+  navChecks: 'What it checks',
+  navFaq: 'FAQ',
+  heroEyebrow: 'For Pakistani electricity bills',
+  heroTitle: 'Understand your electricity bill in plain words',
+  heroText: 'Take a photo of your bill. BillWise tells you how much electricity you used, why the bill is higher or lower, and when to pay, as text and read aloud.',
+  badges: ['Free', 'Urdu and English', 'Listen aloud', 'Your bill is not stored'],
+  uploadCardTitle: 'Show us your bill',
+  howTitle: 'How it works',
+  howSteps: [
+    { title: 'Take a photo', text: 'A clear, straight photo of the whole bill with your phone camera.' },
+    { title: 'We read and check it', text: 'Units, amount, arrears and 12 months of history are read, and the sums are checked.' },
+    { title: 'A plain answer', text: 'Why the bill is what it is, in simple words, and you can listen to it.' },
+  ],
+  checksTitle: 'What BillWise checks on your bill',
+  checks: [
+    { title: 'Unpaid arrears', text: 'How much of an earlier bill is still unpaid, and from which month.' },
+    { title: 'The 200-unit limit', text: 'Whether your connection is protected, and which month raised your rate.' },
+    { title: 'Earlier months', text: 'Units compared with last month and with the same month last year.' },
+    { title: 'FPA, taxes and late fee', text: 'Fuel price adjustment, taxes, subsidy and the extra amount if you pay late.' },
+  ],
+  companiesTitle: 'Which companies',
+  companiesText: "Pakistan's government distribution companies share one bill design (PITC), which BillWise reads. K-Electric bills look different and are not fully tested yet.",
+  faqTitle: 'Common questions',
+  faq: [
+    { q: 'Is it free?', a: 'Yes, BillWise is free to use.' },
+    { q: 'Is my bill stored?', a: 'No. Your bill, name and numbers are not saved on our server. The photo is sent to OpenAI to be read and the listen text to Microsoft. The result is gone when you close the page.' },
+    { q: 'Is the answer always right?', a: 'Mostly, but a blurry photo can be misread. That is why BillWise re-adds the sums and warns you when something does not match. Always check your paper bill before paying.' },
+    { q: 'What do protected and unprotected mean?', a: 'Under NEPRA rules, a household using 200 units or less every month for 6 months gets lower rates. One month above 200 can mean higher rates for the next 6 months.' },
+    { q: 'Why is the first try slow?', a: 'It runs on a free server that sleeps when unused. Waking it can take 1–2 minutes the first time; after that a bill takes about 20 seconds.' },
+  ],
+  footerTagline: 'Your electricity bill, in plain words.',
+  footerDisclaimer: 'BillWise is not affiliated with any electricity company, NEPRA or the government. It is a demo: always check your paper bill before paying.',
+  sourceCode: 'Source code',
+  loadingSteps: ['Reading the photo…', 'Checking the sums…', 'Writing the explanation…'],
+  resultTitle: 'Your bill, explained',
   tagline: 'Your electricity bill, in plain words',
   intro: 'Take a photo of your bill; we explain in plain words how much it is and why.',
   switchTo: 'اردو',
@@ -138,8 +215,8 @@ const en: Strings = {
   firstBill: 'First bill; comparison next month',
   rupees: (n) => `Rs ${n}`,
   plainWords: 'In plain words',
-  listen: '🔊 Listen',
-  stop: '⏹ Stop',
+  listen: 'Listen',
+  stop: 'Stop',
   issuedBy: 'Issued by',
   chargesTitle: 'What makes up your bill?',
   chargeCurrent: "This month's electricity (current bill)",
@@ -150,7 +227,7 @@ const en: Strings = {
   afterDue: (amount) => `After the due date: ${amount}`,
   whyTitle: 'Why is your bill this amount?',
   whyFromPrinted: "Earlier months come from the Bill History printed on your bill.",
-  listenLoading: '⏳ Preparing audio…',
+  listenLoading: 'Preparing audio…',
   listenFailed: 'Could not play the audio. Check the internet and try again.',
   technical: 'Technical details',
   perUnitTitle: 'What did one unit cost?',
@@ -197,22 +274,6 @@ const en: Strings = {
 }
 
 export const STRINGS: Record<Lang, Strings> = { ur, en }
-
-/** Locale for dates and numbers. Urdu month names, but digits stay 0-9 as on Pakistani bills. */
-export const LOCALE: Record<Lang, string> = { ur: 'ur-PK-u-nu-latn', en: 'en-GB' }
-
-export function formatNumber(n: number, decimals = 0): string {
-  return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-}
-
-export function formatDate(iso: string, lang: Lang, withDay = true, short = false): string {
-  // Urdu has no short month names, so `short` only shortens English ("8 Dec 2026").
-  const month = short && lang === 'en' ? 'short' : 'long'
-  const options: Intl.DateTimeFormatOptions = withDay
-    ? { day: 'numeric', month, year: 'numeric' }
-    : { month, year: 'numeric' }
-  return new Date(iso + 'T00:00:00').toLocaleDateString(LOCALE[lang], options)
-}
 
 // ---- Companies that issue electricity bills in Pakistan ----------------------------------------
 // The 11 government-owned DISCOs share the PITC bill format; K-Electric (Karachi) is private.
