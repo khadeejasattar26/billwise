@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from .schemas import BillFields, Comparison
 
 # qwen2.5vl reads both text and images, so one model covers OCR-text extraction and the vision retry.
-DEFAULT_MODEL = "qwen2.5vl:7b"
+DEFAULT_MODEL = "qwen2.5vl:3b"
 DEFAULT_HOST = "http://localhost:11434"
 # Room for the prompt plus one bill photo (qwen2.5vl turns a 1400x1100 image into ~2,000 tokens).
 CONTEXT_TOKENS = 8192

@@ -37,7 +37,7 @@ The validate step checks: all required fields present; `units == current_reading
 |---|---|
 | Computer vision (OpenCV) | [backend/app/vision.py](backend/app/vision.py): grayscale, upscale, denoise, deskew, adaptive threshold |
 | OCR (Tesseract) | [backend/app/ocr.py](backend/app/ocr.py): `eng+urd`, page-segmentation mode 4 |
-| LLMs, prompt engineering, structured output | [backend/app/llm.py](backend/app/llm.py): local `qwen2.5vl:7b` via Ollama (free, no key), output constrained to a JSON schema from a Pydantic model, `done_reason` checks |
+| LLMs, prompt engineering, structured output | [backend/app/llm.py](backend/app/llm.py): local `qwen2.5vl:3b` via Ollama (free, no key), output constrained to a JSON schema from a Pydantic model, `done_reason` checks |
 | Agent workflow (LangGraph) | [backend/app/agent.py](backend/app/agent.py): `StateGraph` with a conditional retry edge |
 | Python + FastAPI | [backend/app/main.py](backend/app/main.py): upload limits, one error shape, CORS |
 | PostgreSQL | [backend/app/db.py](backend/app/db.py), [backend/schema.sql](backend/schema.sql): parameterised SQL, upsert per account-month |
@@ -61,10 +61,10 @@ curl -fsSL -o "$(brew --prefix)/share/tessdata/urd.traineddata" \
   https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/urd.traineddata
 tesseract --list-langs          # should list eng and urd
 
-# 3. Local LLM (about 6 GB download, runs on a 16 GB Mac)
+# 3. Local LLM (about 3.2 GB download)
 brew install ollama
 ollama serve &                  # or: brew services start ollama
-ollama pull qwen2.5vl:7b
+ollama pull qwen2.5vl:3b
 
 # 4. Backend
 cd backend
@@ -104,7 +104,7 @@ Sample bills: `backend/.venv/bin/python samples/make_samples.py` regenerates `sa
 - Tested on two synthetic bills only. Real bills from different distribution companies use different layouts, and Tesseract's Urdu accuracy on real phone photos is unmeasured.
 - Deskew handles up to 15° of tilt and no perspective distortion (a photo taken at an angle).
 - Re-uploading a bill for the same month overwrites the earlier one (see [decision 0003](docs/decisions/0003-postgres-upsert-per-account-month.md)).
-- A 7B local model is less accurate than a hosted frontier model, and each call takes seconds. The validator and vision retry exist to catch its mistakes.
+- A 3B local model is less accurate than a hosted frontier model, and each call takes seconds. The validator and vision retry exist to catch its mistakes.
 - No user accounts: anyone who knows an account number can list its bills.
 - The n8n email node needs SMTP credentials added by hand before it sends anything.
 
