@@ -102,3 +102,15 @@ def test_the_graph_compares_with_printed_history_and_passes_reasons_to_the_expla
         {"image_bytes": b"", "media_type": "image/png", "ocr_text": "t"})
     assert state["comparison"].source == "printed"
     assert codes(llm.insights)[0] == "arrears"
+
+
+def test_history_summary_adds_up_the_printed_history_in_code():
+    from app.insights import history_summary
+
+    rows = [r.model_dump(mode="json") for r in HISTORY]
+    summary = history_summary(rows)
+    assert summary["total_paid_rs"] == 9000 + 3500 + 5000 + 15000 + 0 + 7000
+    assert summary["total_billed_rs"] == 9000 + 3500 + 5000 + 15000 + 4000 + 12000
+    assert summary["highest_month"] == {"month": "2026-07-01", "units": 240}
+    assert summary["months_above_200_units"] == ["2026-07-01"]
+    assert history_summary(rows[:1]) is None

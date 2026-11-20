@@ -136,3 +136,34 @@ def insight_sentences(insights: list[Insight]) -> list[str]:
         elif i.code == "subsidy":
             out.append(f"The government gave a subsidy of Rs {v['subsidy']:,.0f} on this bill.")
     return out
+
+
+def history_summary(history: list[dict]) -> dict | None:
+    """Totals over the printed bill history, computed here because LLMs add up long columns wrongly.
+
+    (Asked "how much did I pay last year?", the model answered Rs 70,200 for payments that sum to 64,300.)
+    """
+    rows = [r for r in history if r.get("units") is not None]
+    if len(rows) < 2:
+        return None
+    bills = [r["bill"] for r in rows if r.get("bill") is not None]
+    paid = [r["payment"] for r in rows if r.get("payment") is not None]
+    highest = max(rows, key=lambda r: r["units"])
+    lowest = min(rows, key=lambda r: r["units"])
+    summary = {
+        "months": len(rows),
+        "first_month": min(r["month"] for r in rows),
+        "last_month": max(r["month"] for r in rows),
+        "total_units": sum(r["units"] for r in rows),
+        "average_units_per_month": round(sum(r["units"] for r in rows) / len(rows)),
+        "highest_month": {"month": highest["month"], "units": highest["units"]},
+        "lowest_month": {"month": lowest["month"], "units": lowest["units"]},
+        "months_above_200_units": [r["month"] for r in rows if r["units"] > PROTECTED_LIMIT],
+    }
+    if bills:
+        summary["total_billed_rs"] = round(sum(bills), 2)
+    if paid:
+        summary["total_paid_rs"] = round(sum(paid), 2)
+    if bills and paid and len(bills) == len(paid):
+        summary["billed_minus_paid_rs"] = round(sum(bills) - sum(paid), 2)
+    return summary

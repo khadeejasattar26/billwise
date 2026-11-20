@@ -11,7 +11,7 @@ from typing import Any
 import ollama
 from pydantic import ValidationError
 
-from .insights import insight_sentences
+from .insights import history_summary, insight_sentences
 from .schemas import BillFields, Comparison, Explanation, Insight, cost_per_unit, energy_cost_per_unit
 
 # qwen2.5vl reads both text and images, so one model covers OCR-text extraction and the vision retry.
@@ -115,8 +115,10 @@ ANSWER_SYSTEM = """You answer questions about one household's electricity bills 
 Pakistani people. Use only the bills, charges, printed history and reasons provided. When asked why a \
 bill is high or went up, compare with earlier months and name the concrete reasons given (unpaid \
 arrears, more units, unprotected status, FPA, taxes), biggest first. If it does not contain the answer, say so \
-in one sentence. Keep answers under 80 words, use simple words, and quote real numbers. Write the answer in the \
-language the user message tells you to use."""
+in one sentence. Keep answers under 80 words, use simple words, and quote real numbers. Never add, subtract, multiply \
+or average numbers yourself: use only figures given (totals are pre-calculated). If a needed figure is \
+not given, say you cannot calculate it. Never mention data field names (such as total_paid_rs) or \
+"the history summary": speak about the bill. Write the answer in the language the user message tells you to use."""
 
 
 URDU_MONTHS = ["جنوری", "فروری", "مارچ", "اپریل", "مئی", "جون",
@@ -191,9 +193,16 @@ def answer_prompt(question: str, history: list[dict[str, Any]], focus: dict[str,
                                                 "subsidy", "payable_after_due") if details.get(k) is not None}
         parts.append(f"The bill being asked about ({focus.get('billing_month')}), total Rs {focus.get('amount')}:\n"
                      f"{json.dumps(charges, indent=2)}")
+        parts.append("How the total is made up: the current bill is this month's electricity and already "
+                     "includes taxes, with the subsidy already taken off. Total payable = current bill + "
+                     "arrears + FPA (+ any other adjustment). Do not add taxes or subtract the subsidy again.")
         if details.get("history"):
             parts.append("History table printed on that bill (month, units, bill, payment):\n"
                          + json.dumps(details["history"], indent=2))
+            summary = history_summary(details["history"])
+            if summary:
+                parts.append("Totals over that history, already calculated (use these, never add up yourself):\n"
+                             + json.dumps(summary, indent=2))
         reasons = insight_sentences([Insight(**i) for i in details.get("insights", [])])
         if reasons:
             parts.append("Reasons already worked out from the bill (use these to explain why):\n"
