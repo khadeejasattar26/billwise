@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { ApiError, askAboutBill, fetchSpeech, listBills, uploadBill, type Bill, type BillFields, type Comparison, type Insight, type UploadResult } from './api'
+import { ApiError, askAboutBill, fetchSpeech, listHistory, uploadBill, type Bill, type BillFields, type Comparison, type Insight, type UploadResult } from './api'
 import { STRINGS, discoName, formatDate, formatNumber, insightText, type Lang, type Strings } from './i18n'
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
@@ -43,7 +43,7 @@ export default function App() {
     try {
       const uploaded = await uploadBill(file)
       setResult(uploaded)
-      setHistory(await listBills(uploaded.bill.account_no))
+      setHistory(await listHistory(uploaded.bill.public_id))
       setStatus('success')
     } catch (e) {
       setError(e instanceof ApiError ? e : new ApiError('unknown', ''))
@@ -90,6 +90,7 @@ export default function App() {
           📷 {status === 'loading' ? t.uploading : t.upload}
         </button>
         <p className="mt-2 text-base text-slate-600">{t.uploadHint}</p>
+        <p className="mt-2 max-w-2xl text-sm text-slate-500">🔒 {t.privacy}</p>
       </section>
 
       <div aria-live="polite">
@@ -165,8 +166,8 @@ function Result({ result, history, lang, t }: { result: UploadResult; history: B
       <WhyCard insights={result.insights} printed={comparison?.source === 'printed'} lang={lang} t={t} />
       <PerUnit result={result} t={t} />
       <WhatIsAUnit comparison={comparison} t={t} />
-      <UnitsChart fields={fields} bills={history} currentId={bill.id} lang={lang} t={t} />
-      <AskBox billId={bill.id} t={t} />
+      <UnitsChart fields={fields} bills={history} currentId={bill.public_id} lang={lang} t={t} />
+      <AskBox billId={bill.public_id} t={t} />
       <BillDetails fields={fields} warnings={bill.warnings} technical={technical} lang={lang} t={t} />
     </div>
   )
@@ -347,7 +348,7 @@ function monthName(iso: string, lang: Lang): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString(lang === 'ur' ? 'ur-PK' : 'en-GB', { month: lang === 'ur' ? 'long' : 'short' })
 }
 
-function UnitsChart({ fields, bills, currentId, lang, t }: { fields: BillFields; bills: Bill[]; currentId: number; lang: Lang; t: Strings }) {
+function UnitsChart({ fields, bills, currentId, lang, t }: { fields: BillFields; bills: Bill[]; currentId: string; lang: Lang; t: Strings }) {
   // Prefer the 12-month history printed on the bill; otherwise use bills uploaded to BillWise.
   // Geometry: 16rem chart = 2.5rem month label + 0.25rem gap + 1.5rem top padding + 11.75rem of bar space.
   type Point = { key: string; month: string; units: number; current: boolean }
@@ -359,7 +360,7 @@ function UnitsChart({ fields, bills, currentId, lang, t }: { fields: BillFields;
       .map((r) => ({ key: r.month, month: r.month, units: r.units as number, current: false }))
     points.push({ key: fields.billing_month, month: fields.billing_month, units: fields.units, current: true })
   } else {
-    points = bills.map((b) => ({ key: String(b.id), month: b.billing_month, units: b.units, current: b.id === currentId }))
+    points = bills.map((b) => ({ key: b.public_id, month: b.billing_month, units: b.units, current: b.public_id === currentId }))
   }
   if (points.length === 0) return null
   const top = Math.max(PROTECTED_LIMIT * 1.15, ...points.map((p) => p.units))
@@ -399,7 +400,7 @@ function UnitsChart({ fields, bills, currentId, lang, t }: { fields: BillFields;
   )
 }
 
-function AskBox({ billId, t }: { billId: number; t: Strings }) {
+function AskBox({ billId, t }: { billId: string; t: Strings }) {
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)

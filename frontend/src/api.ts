@@ -33,7 +33,7 @@ export type BillFields = {
 }
 
 export type Bill = {
-  id: number
+  public_id: string
   account_no: string
   billing_month: string
   units: number
@@ -99,13 +99,14 @@ export function uploadBill(file: File): Promise<UploadResult> {
   return request('/bills', { method: 'POST', body: form })
 }
 
-export async function listBills(accountNo: string): Promise<Bill[]> {
-  const data = await request<{ bills: Bill[] }>(`/bills?account_no=${encodeURIComponent(accountNo)}`)
+/** Earlier uploads for the same account, found through the bill's random id (never an account number). */
+export async function listHistory(publicId: string): Promise<Bill[]> {
+  const data = await request<{ bills: Bill[] }>(`/bills/${encodeURIComponent(publicId)}/history`)
   return data.bills
 }
 
-export async function askAboutBill(billId: number, question: string): Promise<string> {
-  const data = await request<{ answer: string }>(`/bills/${billId}/ask`, {
+export async function askAboutBill(publicId: string, question: string): Promise<string> {
+  const data = await request<{ answer: string }>(`/bills/${encodeURIComponent(publicId)}/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question }),

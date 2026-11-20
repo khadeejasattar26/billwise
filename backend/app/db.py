@@ -1,6 +1,8 @@
 """PostgreSQL access. Every query is parameterised; values never enter SQL through string formatting."""
 
 import os
+import uuid
+from pathlib import Path
 from datetime import date
 from typing import Any
 
@@ -11,7 +13,7 @@ from psycopg.types.json import Jsonb
 DEFAULT_URL = "postgresql://billwise:billwise@localhost:5433/billwise"
 
 COLUMNS = (
-    "id, account_no, billing_month, units, amount, due_date, explanation, explanation_ur, details, "
+    "id, public_id, account_no, billing_month, units, amount, due_date, explanation, explanation_ur, details, "
     "warnings, extraction_mode, created_at"
 )
 
@@ -75,6 +77,27 @@ def bills_for_account(account_no: str) -> list[dict[str, Any]]:
         return conn.execute(sql, (account_no,)).fetchall()
 
 
-def get_bill(bill_id: int) -> dict[str, Any] | None:
+def get_bill(public_id: str) -> dict[str, Any] | None:
+    """Look a bill up by its random public id. Invalid UUIDs simply find nothing."""
+    try:
+        uuid.UUID(public_id)
+    except ValueError:
+        return None
     with connect() as conn:
-        return conn.execute(f"SELECT {COLUMNS} FROM bills WHERE id = %s", (bill_id,)).fetchone()
+        return conn.execute(f"SELECT {COLUMNS} FROM bills WHERE public_id = %s", (public_id,)).fetchone()
+
+
+def delete_older_than(days: int) -> int:
+    """Delete bills uploaded more than `days` ago. Returns how many were deleted."""
+    with connect() as conn:
+        return conn.execute("DELETE FROM bills WHERE created_at < now() - make_interval(days => %s)",
+                            (days,)).rowcount
+
+
+def init_schema() -> None:
+    """Create the table and apply migrations. Every statement is idempotent (IF NOT EXISTS)."""
+    root = Path(__file__).resolve().parent.parent
+    files = [root / "schema.sql", *sorted((root / "migrations").glob("*.sql"))]
+    with connect() as conn:
+        for path in files:
+            conn.execute(path.read_text())
