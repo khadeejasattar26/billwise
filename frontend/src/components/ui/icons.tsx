@@ -34,3 +34,12 @@ export const ReceiptIcon = (p: IconProps) => (
 export const ChartIcon = (p: IconProps) => <Svg {...p}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></Svg>
 export const CalendarIcon = (p: IconProps) => <Svg {...p}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></Svg>
 export const SparkIcon = (p: IconProps) => <Svg {...p}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" /></Svg>
+/** Points back in reading order: left in English; flipped by the caller with rtl:-scale-x-100 in Urdu. */
+export const BackIcon = (p: IconProps) => <Svg {...p}><path d="m15 18-6-6 6-6" /></Svg>
+export const ImageIcon = (p: IconProps) => <Svg {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 17-5-5-9 8" /></Svg>
+export const SunIcon = (p: IconProps) => (
+  <Svg {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></Svg>
+)
+export const CornersIcon = (p: IconProps) => <Svg {...p}><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></Svg>
+export const FlatIcon = (p: IconProps) => <Svg {...p}><path d="M3 17 9 7h12l-6 10H3z" /></Svg>
+export const TextSizeIcon = (p: IconProps) => <Svg {...p}><path d="M4 19 9 5l5 14M6 14h6M15 19l3.5-9 3.5 9M16.2 16h4.6" /></Svg>

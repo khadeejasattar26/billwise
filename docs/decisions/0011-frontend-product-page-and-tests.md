@@ -1,6 +1,6 @@
 # 0011: Frontend as a product page, split by feature, with Vitest tests
 - Date: 2026-11-20
-- Status: Accepted
+- Status: Accepted (page layout superseded by [0012](0012-guided-flow-one-thing-per-screen.md); code structure and tests still apply)
 - Related: `frontend/src/components/`, `frontend/src/hooks/`, `frontend/vitest.config.ts`
 
 **Context:** A UI review found the page was a bare form: no header, footer, FAQ, trust signals or link preview, emoji for icons, and one 554-line `App.tsx` with no frontend tests.

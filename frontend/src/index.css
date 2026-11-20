@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+/* Noto Nastaliq Urdu, regular weight only, self-hosted (SIL Open Font License: public/fonts/OFL.txt).
+   Split like Google Fonts: Urdu letters, and the Latin subset for digits inside Urdu sentences. */
+@font-face {
+  font-family: "Noto Nastaliq Urdu";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/noto-nastaliq-urdu-arabic.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: "Noto Nastaliq Urdu";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/noto-nastaliq-urdu-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* ---- Design tokens ---------------------------------------------------------------------------
    One place for the palette, type and shape, so every component draws from the same system.
    Brand green echoes the Pakistani flag and reads as "trust / money"; amber marks things to
@@ -43,6 +62,9 @@
 :lang(ur) {
   font-family: var(--font-urdu);
   line-height: 2.2;
+  /* Only the regular Nastaliq weight is loaded (W3C / RTL guides: bold Nastaliq reads poorly, and
+     each weight is ~117 KB on mobile data). Stop browsers faking a bold; emphasis comes from size. */
+  font-synthesis: none;
 }
 :lang(ur) :is(h1, h2, h3) {
   line-height: 1.9;

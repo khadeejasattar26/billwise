@@ -1,7 +1,7 @@
-import { FEEDBACK_URL, SOURCE_URL } from '../../lib/constants'
+import { FEEDBACK_URL } from '../../lib/constants'
 import type { Strings } from '../../i18n'
-import { CodeIcon, MessageIcon } from '../ui/icons'
-import { button, container, focusRing } from '../ui/styles'
+import { MessageIcon } from '../ui/icons'
+import { button, container } from '../ui/styles'
 import { Logo } from './Logo'
 
 const YEAR = new Date().getFullYear() // read once at load, not on every render
@@ -21,10 +21,6 @@ export function SiteFooter({ t }: { t: Strings }) {
               <MessageIcon className="size-5" /> {t.feedback}
             </a>
           )}
-          <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer"
-             className={`inline-flex items-center gap-2 rounded-lg px-2 py-1 text-base font-semibold text-slate-700 hover:text-ink ${focusRing}`}>
-            <CodeIcon className="size-5" /> <span>{t.sourceCode}</span>
-          </a>
           <p className="latin text-sm text-slate-500">© {YEAR} BillWise</p>
         </div>
       </div>

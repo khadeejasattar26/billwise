@@ -4,27 +4,45 @@
 
 Many Pakistani households, especially older people, can't tell from a bill how much electricity they used or why it went up. BillWise reads a photo of the bill (English + Urdu labels), checks the numbers, compares with last month, and explains the change **in simple Urdu** (or English): how many more units, how many more rupees, what one unit cost, and when to pay. A listen button reads the explanation aloud.
 
-| Urdu (default) | English | Phone |
-|---|---|---|
-| ![BillWise in Urdu: summary cards, plain-Urdu explanation, cost per unit, what-is-a-unit help, monthly chart and an Urdu answer](docs/images/billwise-urdu.png) | ![The same page in English](docs/images/billwise-english.png) | ![The Urdu page at phone width](docs/images/billwise-phone.png) |
+| Urdu home page | English home page |
+|---|---|
+| ![BillWise home page in Urdu: headline, "check my bill" and "see an example" buttons, and a preview of a real answer](docs/images/billwise-home-urdu.png) | ![The same home page in English](docs/images/billwise-home-english.png) |
 
-### What a household sees
+![The guided flow on a phone: consent, photo tips, photo check, and the answer with the amount, due date and a Listen button](docs/images/billwise-flow.png)
 
-- **At a glance:** three large cards for units, bill and due date, each with "▼ 80 less than last month".
-- **In plain words:** 2–3 sentences in everyday Urdu, with no percentages and no jargon, leading with the biggest reason, e.g. "آپ کے بل میں 5,000 روپے پچھلا بقایا شامل ہے۔"
-- **What makes up your bill?** This month's electricity + unpaid arrears + fuel price adjustment = total, with the amount after the due date.
-- **Why is your bill this amount?** Reasons found by plain Python rules, not the LLM:
-  - arrears traced to the month that was only partly paid;
-  - units vs last month and vs the same month last year;
-  - protected / unprotected status, naming the month that crossed 200 units;
-  - FPA, taxes, the late-payment amount and the subsidy.
-- **Comparison from the bill itself:** on the first upload there is nothing saved to compare with, so BillWise reads the 12-month **Bill History** table printed on the bill.
-- **Units by month:** a chart of that history with a dashed line at the 200-unit protected limit; months above it are red.
-- **🔊 سنیں (Listen):** the server reads the explanation in a Pakistani Urdu voice (Microsoft's `ur-PK-UzmaNeural`), so it works on any phone. If the server can't, the device's own voice is used.
-- **What did one unit cost?** This month's charges ÷ units, never the total with arrears.
-- **What is a unit?** One unit equals a ceiling fan for about 13 hours, or a 1.5-ton AC for about 40 minutes.
-- **Ask about your bill** in Urdu, Roman Urdu or English. "Why did my bill go up?" gets the concrete reasons, biggest first, in the same language.
-- **اردو / English switch:** right-to-left layout and the Noto Nastaliq Urdu font for Urdu; the choice is remembered.
+### The flow: one thing per screen
+
+```
+Home ─► ① Consent ─► ② Photo ─► ③ Check photo ─► (reading) ─► ④ Answer ─┬─► Details (breakdown, chart, glossary)
+  │      one question  tips +     preview + blur,              amount,      ├─► Ask (ready-made questions)
+  │      one button    camera     light, size check            due date,    └─► Check another bill
+  └─► "See an example": the sample bill's answer, instantly, no upload                main reason, 🔊
+```
+
+- **Home:** the promise, two buttons ("check my bill", "see an example") and a preview built from the real answer components.
+- **① Consent:** one question with one big button (own bill or permission; the photo goes to OpenAI in the USA).
+- **② Photo:** three illustrated tips (flat, good light, all four corners), then **Open camera** (opens the phone camera directly) or **Choose from gallery**.
+- **③ Check photo:** the photo is checked **on the phone** before upload: sharpness (Laplacian variance), brightness and size, with thresholds measured on the sample bills. A blurry, dark or tiny photo gets "better to retake" as the main action, though it can still be used. Large phone photos (often 5–15 MB, over the 5 MB limit) are shrunk to 2,000 px before upload.
+- **④ Answer:** how much to pay, by when, the late amount, the one or two most important reasons, and the plain-words explanation with a **Listen** button (server-side Pakistani Urdu voice).
+- **Details:** all reasons, the charges breakdown, 12-month units chart with the 200-unit line, price per unit, what a unit means, a **glossary of the words on the bill** (unit, arrears, FPA, protected, LP surcharge…) and the raw fields.
+- **Ask:** **ready-made question chips** ("why is my bill high?") so nobody has to type; answers come back in Urdu, Roman Urdu or English to match.
+- **Everywhere:** back button (mirrored in Urdu), "step N of 3", the browser's back button works, a **larger-text** switch, the main action pinned to the bottom of the screen, tap targets of at least 44 px.
+
+### Why it is designed this way
+
+| Research | What BillWise does |
+|---|---|
+| GOV.UK Design System: one question per page works better, especially for low-confidence users and on mobile; avoid accordions | A guided flow with one task per screen, instead of one long page of folds |
+| Nielsen Norman Group: progressive disclosure; older users struggle with small tap targets and need to enlarge text | The answer screen shows only what matters; details are one tap away; 44 px targets; a larger-text switch |
+| WCAG 2.2 Target Size (Enhanced): 44 × 44 px | Checked automatically on every screen by `qa/ui_qa.py` |
+| Document-capture guidance: guide before the photo, review and retake, check blur and lighting | Photo tips, then a check screen with on-device blur, brightness and size checks |
+| National Literacy Trust with Octopus Energy: a quarter of young adults misunderstand energy bills; they built an explainer for key terms | A glossary of the words printed on Pakistani bills |
+| Linear and Stripe landing pages: show the product, one clear next step | The home page shows a real answer card; "see an example" opens one instantly |
+| W3C Urdu Layout Requirements and right-to-left guides: name the Nastaliq font, give it vertical space, avoid bold Nastaliq | Self-hosted Noto Nastaliq Urdu, regular weight only, `font-synthesis: none`, generous line height |
+
+Sources: [GOV.UK question pages](https://design-system.service.gov.uk/patterns/question-pages), [GDS: one thing per page](https://designnotes.blog.gov.uk/2015/07/03/one-thing-per-page/), [GDS: no more accordions](https://userresearch.blog.gov.uk/2015/08/13/no-more-accordions-how-to-choose-a-form-structure/), [NN/g: progressive disclosure](https://nngroup.com/articles/progressive-disclosure/), [NN/g: usability for seniors](https://www.nngroup.com/articles/usability-seniors-improvements/), [WCAG 2.2 target size (enhanced)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced), [document capture guidelines](https://docs.onespan.com/docs/document-and-selfie-capture-guidelines.md), [National Literacy Trust: energy bills and literacy](https://literacytrust.org.uk/research-services/research-reports/energy-bills-and-literacy-a-survey-of-uk-adults), [W3C Urdu layout requirements](https://www.w3.org/TR/arab-ur-lreq/), [W3C Urdu gap analysis](https://www.w3.org/TR/arab-ur-gap).
+
+**Measured** (Lighthouse, simulated mobile, production build, 3 runs): performance 94–97, accessibility 100, best practices 100, SEO 100; first content at 1.4 s.
 
 ### Pakistani bills it understands
 
@@ -71,9 +89,9 @@ The validate step checks: all required fields present; `units == current_reading
 | Agent workflow (LangGraph) | [backend/app/agent.py](backend/app/agent.py): `StateGraph` with a conditional retry edge |
 | Python + FastAPI | [backend/app/main.py](backend/app/main.py): upload limits, one error shape, CORS, `/speech` audio endpoint; [backend/app/insights.py](backend/app/insights.py): rule-based reasons |
 | PostgreSQL | [backend/app/db.py](backend/app/db.py), [backend/schema.sql](backend/schema.sql): parameterised SQL, upsert per account-month |
-| React + TypeScript + Tailwind | [frontend/src/](frontend/src/): a product page (header, hero with upload, how it works, what it checks, FAQ, footer) and the result view; components by feature, custom hooks, design tokens in `index.css`, SVG icons, Urdu-first right-to-left with an English switch, server Urdu voice, plain-div chart; 19 Vitest tests |
+| React + TypeScript + Tailwind | [frontend/src/](frontend/src/): a guided flow (`screens/`, hash routing in `flow/`), on-device photo checks (`lib/photo.ts`), components by feature, hooks, design tokens, self-hosted Nastaliq, screens loaded on demand; 25 Vitest tests |
 | Workflow automation (n8n) | [n8n/bill-reminder.json](n8n/bill-reminder.json): Webhook → Wait → Send Email |
-| Testing | [backend/tests/](backend/tests/): 59 pytest tests; [frontend](frontend/src/): 19 Vitest tests; [qa/](qa/README.md): 42 API and 22 browser end-to-end checks |
+| Testing | [backend/tests/](backend/tests/): 59 pytest tests; [frontend](frontend/src/): 25 Vitest tests; [qa/](qa/README.md): 42 API and 34 browser end-to-end checks |
 
 Design decisions are logged in [docs/decisions/](docs/decisions/README.md).
 
@@ -162,11 +180,11 @@ This is not legal advice; have a Pakistani lawyer review the notice before offer
 
 ## 1-minute demo script
 
-1. **(10 s)** "Many people in Pakistan, especially older people, can't read their electricity bill. BillWise explains it in simple Urdu." Open http://localhost:5173 and upload `samples/bill_pitc_style.png`.
-2. **(15 s)** "OpenCV straightens and cleans the photo, Tesseract reads English and Urdu, and an LLM fills a typed form, including the 12-month history table. Python checks the meter maths; if it fails, the LangGraph agent re-reads the photo."
-3. **(15 s)** Point at **What makes up your bill?** and **Why is your bill this amount?**: "This month's electricity is only Rs 4,500. The total is high because Rs 5,000 from September was never paid, and July's 240 units made the house unprotected. Python rules find these reasons; the LLM only puts them into words." Press **🔊 سنیں**.
-4. **(10 s)** Point at the chart: "July is red, above the 200-unit line."
-5. **(10 s)** Type "mera bill itna zyada kyun hai?" in the Ask box: it answers in Urdu with the same reasons. Switch to English to show the same page in English.
+1. **(10 s)** "Many people in Pakistan, especially older people, can't read their electricity bill. BillWise explains it in simple Urdu." Open the site and tap **نمونہ دیکھیں** (see an example): the answer opens instantly.
+2. **(15 s)** "One thing per screen, like GOV.UK: the amount, the due date, and the main reason: Rs 5,000 unpaid from September." Tap **🔊 سنیں** to hear it in a Pakistani Urdu voice.
+3. **(10 s)** Tap **پوری تفصیل دیکھیں** (details): "The breakdown, 12 months of units with the 200-unit line, and what the words on the bill mean."
+4. **(15 s)** Go home and tap **اپنا بل چیک کریں**: consent, photo tips, then pick `samples/bill_pitc_style.png`. "The photo is checked for blur, light and size on the phone, before it is uploaded."
+5. **(10 s)** "OpenCV and Tesseract read it, a LangGraph agent checks the sums and retries with the photo if they don't add up, and Python rules find the reasons; the LLM only puts them into words." Tap a ready-made question in **سوال پوچھیں**.
 
 ## Measured results
 
@@ -188,12 +206,13 @@ Before deployment the whole app was tested as a release candidate (results on 20
 
 | Layer | Result |
 |---|---|
-| Unit tests (`backend/tests`, frontend Vitest) | 59 + 19 passed |
+| Unit tests (`backend/tests`, frontend Vitest) | 59 + 25 passed |
 | Type check, lint, build | clean |
 | Dependency audits (`npm audit`, `pip-audit`) | 0 known vulnerabilities |
 | Secret scan (built site, git history) | no keys found |
 | API end-to-end ([qa/api_qa.py](qa/api_qa.py)) | 42 / 42 |
-| Browser end-to-end ([qa/ui_qa.py](qa/ui_qa.py)) | 22 / 22, including 0 axe-core accessibility violations |
+| Browser end-to-end ([qa/ui_qa.py](qa/ui_qa.py)) | 34 / 34: every screen with 0 axe-core violations and no tap target under 44 px |
+| Lighthouse (mobile, production build) | performance 94–97, accessibility 100, best practices 100, SEO 100 |
 
 Bugs found and fixed in that pass:
 - **Critical:** a blank page or a noise photo produced an invented bill with plausible amounts. The model now reports `is_electricity_bill`, the prompt forbids guessing, and a page with almost no OCR text goes straight to the photo.

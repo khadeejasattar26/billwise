@@ -12,4 +12,5 @@
 | [0008](0008-host-on-vercel-render-neon.md) | Host the site on Vercel and the backend on Render's free plan, with Neon Postgres | Accepted, amended by 0010 (no database on the public site) |
 | [0009](0009-vision-only-on-free-hosting.md) | On the free host, send the photo straight to the vision model instead of running Tesseract | Accepted |
 | [0010](0010-public-site-stores-nothing.md) | The public site stores nothing; uploads need explicit consent | Accepted |
-| [0011](0011-frontend-product-page-and-tests.md) | Frontend as a product page, split by feature, with Vitest tests | Accepted |
+| [0011](0011-frontend-product-page-and-tests.md) | Frontend as a product page, split by feature, with Vitest tests | Accepted, layout superseded by 0012 |
+| [0012](0012-guided-flow-one-thing-per-screen.md) | Replace the long result page with a guided flow, one thing per screen | Accepted |

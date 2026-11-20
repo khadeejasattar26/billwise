@@ -22,6 +22,8 @@ for i, line in enumerate(["CAFE MENU", "Tea ........ Rs 80", "Samosa ..... Rs 50
 menu.save(out / "not_a_bill.png")
 bill = Image.open(sample)
 bill.rotate(90, expand=True).save(out / "rotated90.png")
+from PIL import ImageFilter
+bill.convert("RGB").filter(ImageFilter.GaussianBlur(6)).save(out / "blurred.jpg")  # sharpness ~44: flagged by the photo check
 bill.resize((300, 380)).save(out / "tiny.png")
 bill.convert("RGB").save(out / "jpeg_named_png.png", format="JPEG")
 bill.save(out / "UPPER.PNG")
