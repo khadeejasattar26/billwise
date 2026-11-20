@@ -7,7 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, File, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -199,15 +199,30 @@ class SpeechRequest(BaseModel):
     lang: str = Field("ur", pattern="^(ur|en)$")
 
 
-@app.post("/speech")
-async def speech(body: SpeechRequest, request: Request):
-    """MP3 of the text in a Pakistani Urdu (or English) voice, for the Listen button."""
+async def _speech_response(text: str, lang: str, request: Request) -> Response:
     check_limit(request, "speech", SPEECH_PER_HOUR)
     try:
-        audio = await tts.synthesize(body.text, body.lang)
+        audio = await tts.synthesize(text, lang)
     except tts.SpeechError as exc:
         raise ApiError(502, "speech_failed", str(exc))
     return Response(content=audio, media_type="audio/mpeg")
+
+
+@app.post("/speech")
+async def speech(body: SpeechRequest, request: Request):
+    """MP3 of the text in a Pakistani Urdu (or English) voice, for the Listen button."""
+    return await _speech_response(body.text, body.lang, request)
+
+
+@app.get("/speech")
+async def speech_get(request: Request, text: str = Query(..., min_length=1, max_length=tts.MAX_CHARS),
+                     lang: str = Query("ur", pattern="^(ur|en)$")):
+    """Same audio as a plain URL, so the page can set <audio src> inside the tap.
+
+    iPhone Safari only allows audio that starts during the user's tap; fetching first and
+    playing afterwards can be blocked.
+    """
+    return await _speech_response(text, lang, request)
 
 
 # ---- the built React site, when deployed as one container --------------------------------

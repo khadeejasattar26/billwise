@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { ApiError, askAboutBill, fetchSpeech, listHistory, uploadBill, wakeBackend, type Bill, type BillFields, type Comparison, type Insight, type UploadResult } from './api'
+import { ApiError, askAboutBill, listHistory, speechUrl, uploadBill, wakeBackend, type Bill, type BillFields, type Comparison, type Insight, type UploadResult } from './api'
 import { STRINGS, discoName, formatDate, formatNumber, insightText, type Lang, type Strings } from './i18n'
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
@@ -200,7 +200,8 @@ function Change({ diff, t, format }: { diff: number | undefined; t: Strings; for
 
 function ListenButton({ text, lang, t }: { text: string; lang: Lang; t: Strings }) {
   // Audio comes from the server (Pakistani Urdu neural voice), so it works on any phone or browser.
-  // If the server can't make audio, fall back to the device's own voice when it has one.
+  // play() is called inside the tap, which iPhone Safari requires; if the server audio fails,
+  // fall back to the device's own voice when it has one.
   const [state, setState] = useState<'idle' | 'loading' | 'playing' | 'failed'>('idle')
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
@@ -224,26 +225,23 @@ function ListenButton({ text, lang, t }: { text: string; lang: Lang; t: Strings 
     return true
   }
 
-  async function toggle() {
-    if (state === 'playing') {
+  function toggle() {
+    if (state === 'playing' || state === 'loading') {
       audioRef.current?.pause()
       if ('speechSynthesis' in window) window.speechSynthesis.cancel()
       setState('idle')
       return
     }
-    setState('loading')
-    try {
-      if (!audioRef.current) {
-        const audio = new Audio(URL.createObjectURL(await fetchSpeech(text, lang)))
-        audio.onended = () => setState('idle')
-        audioRef.current = audio
-      }
-      audioRef.current.currentTime = 0
-      await audioRef.current.play()
-      setState('playing')
-    } catch {
-      setState(speakWithDevice() ? 'playing' : 'failed')
+    if (!audioRef.current) {
+      const audio = new Audio(speechUrl(text, lang))
+      audio.onplaying = () => setState('playing')
+      audio.onended = () => setState('idle')
+      audio.onerror = () => setState(speakWithDevice() ? 'playing' : 'failed')
+      audioRef.current = audio
     }
+    audioRef.current.currentTime = 0
+    setState('loading')
+    audioRef.current.play().catch(() => setState(speakWithDevice() ? 'playing' : 'failed'))
   }
 
   return (
@@ -251,9 +249,8 @@ function ListenButton({ text, lang, t }: { text: string; lang: Lang; t: Strings 
       <button
         type="button"
         onClick={toggle}
-        disabled={state === 'loading'}
         aria-pressed={state === 'playing'}
-        className={`rounded-full bg-emerald-700 px-5 py-2 text-lg font-semibold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-70 ${focusRing}`}
+        className={`rounded-full bg-emerald-700 px-5 py-2 text-lg font-semibold text-white hover:bg-emerald-800 ${focusRing}`}
       >
         {state === 'playing' ? t.stop : state === 'loading' ? t.listenLoading : t.listen}
       </button>

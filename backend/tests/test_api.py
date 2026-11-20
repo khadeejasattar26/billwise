@@ -41,3 +41,9 @@ def test_questions_must_have_at_least_three_characters():
     response = client.post("/bills/00000000-0000-0000-0000-000000000000/ask", json={"question": "a"})
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_request"
+
+
+def test_speech_url_rejects_an_unknown_language_without_calling_the_voice_service():
+    response = client.get("/speech", params={"text": "سلام", "lang": "fr"})
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"

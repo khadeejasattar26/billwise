@@ -119,18 +119,8 @@ export async function askAboutBill(publicId: string, question: string): Promise<
   return data.answer
 }
 
-/** MP3 of the text in a Pakistani Urdu (or English) voice, generated on the server. */
-export async function fetchSpeech(text: string, lang: 'ur' | 'en'): Promise<Blob> {
-  let response: Response
-  try {
-    response = await fetch(`${API_URL}/speech`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, lang }),
-    })
-  } catch {
-    throw new ApiError('network_error', 'Cannot reach the BillWise API.')
-  }
-  if (!response.ok) throw new ApiError('speech_failed', `Speech failed (${response.status}).`)
-  return response.blob()
+/** URL of an MP3 of the text in a Pakistani Urdu (or English) voice, generated on the server.
+ *  A URL (not a fetch) so the audio can start inside the user's tap, as iPhone Safari requires. */
+export function speechUrl(text: string, lang: 'ur' | 'en'): string {
+  return `${API_URL}/speech?${new URLSearchParams({ text, lang })}`
 }
