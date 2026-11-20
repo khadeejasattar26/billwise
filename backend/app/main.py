@@ -123,19 +123,6 @@ def get_llm():
 
 # ---- routes ----------------------------------------------------------------------------
 
-@app.get("/debug/client-ip")
-def debug_client_ip(request: Request):
-    """TEMPORARY: which address headers the host sends, to configure the upload limiter correctly.
-    Shows only the caller's own address and header names. Remove after checking on Render."""
-    names = ("x-forwarded-for", "cf-connecting-ip", "true-client-ip", "x-real-ip", "forwarded")
-    return {
-        "limiter_uses": client_ip(request),
-        "headers_present": [n for n in names if n in request.headers],
-        "x_forwarded_for_entries": len(request.headers.get("x-forwarded-for", "").split(",")) if "x-forwarded-for" in request.headers else 0,
-        "connection_peer_is_private": (request.client.host if request.client else "").startswith(("10.", "172.", "192.168.", "127.")),
-    }
-
-
 @app.get("/health")
 def health():
     # `storage` lets the page show the right privacy notice before anything is uploaded.
