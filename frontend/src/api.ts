@@ -105,16 +105,16 @@ export async function wakeBackend(): Promise<{ storage: 'postgres' | 'off' } | n
   }
 }
 
-export function uploadBill(file: File): Promise<UploadResult> {
+export function uploadBill(file: File, signal?: AbortSignal): Promise<UploadResult> {
   const form = new FormData()
   form.append('image', file)
-  form.append('consent', 'true') // the upload button is disabled until the consent box is ticked
-  return request('/bills', { method: 'POST', body: form })
+  form.append('consent', 'true') // the guided flow requires consent before accepting a photo
+  return request('/bills', { method: 'POST', body: form, signal })
 }
 
 /** Earlier uploads for the same account, found through the bill's random id (never an account number). */
-export async function listHistory(publicId: string): Promise<Bill[]> {
-  const data = await request<{ bills: Bill[] }>(`/bills/${encodeURIComponent(publicId)}/history`)
+export async function listHistory(publicId: string, signal?: AbortSignal): Promise<Bill[]> {
+  const data = await request<{ bills: Bill[] }>(`/bills/${encodeURIComponent(publicId)}/history`, { signal })
   return data.bills
 }
 

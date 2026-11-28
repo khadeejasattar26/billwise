@@ -29,7 +29,7 @@ export function PhotoScreen({ t, onBack, onFile }: { t: Strings; onBack: () => v
           <ImageIcon className="size-6" /> {t.galleryCta}
         </button>
     </>}>
-      <ol className={`${card} space-y-5`}>
+      <ol className={`${card} space-y-4`}>
         {t.photoTips.map((tip, i) => {
           const Icon = TIP_ICONS[i]
           return (
@@ -43,6 +43,7 @@ export function PhotoScreen({ t, onBack, onFile }: { t: Strings; onBack: () => v
           )
         })}
       </ol>
+      <p className="text-base text-slate-600">{t.photoFormats}</p>
       <input ref={camera} id="camera-input" type="file" accept={ACCEPT} capture="environment" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={take} />
       <input ref={gallery} id="gallery-input" type="file" accept={ACCEPT} className="sr-only" tabIndex={-1} aria-hidden="true" onChange={take} />
     </FlowLayout>

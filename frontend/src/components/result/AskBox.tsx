@@ -17,19 +17,20 @@ export function AskBox({ bill, t, suggestions = [], showTitle = true }: { bill: 
 
   // The answer appears below the chips and the box: bring it into view when it arrives.
   useEffect(() => {
-    if (answer) answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (answer) answerRef.current?.scrollIntoView?.({ block: 'nearest' })
   }, [answer])
 
   async function ask(text: string) {
     const q = text.trim()
     if (q.length < MIN_QUESTION || loading) return
     setLoading(true)
+    setAnswer(null)
     setError(null)
     try {
       // A stored bill is looked up by its random id; otherwise the browser sends the bill itself.
       setAnswer(bill.public_id ? await askAboutBill(bill.public_id, q) : await askWithBill(bill, q))
     } catch (err) {
-      setError(err instanceof ApiError ? (t.errors[err.code] ?? err.message) : t.errors.default)
+      setError(err instanceof ApiError ? (t.errors[err.code] ?? t.errors.default) : t.errors.default)
     } finally {
       setLoading(false)
     }
@@ -65,16 +66,16 @@ export function AskBox({ bill, t, suggestions = [], showTitle = true }: { bill: 
       <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row">
         <label htmlFor="question" className="sr-only">{t.askLabel}</label>
         <input id="question" dir="auto" value={question} onChange={(e) => setQuestion(e.target.value)}
-               placeholder={t.askPlaceholder} maxLength={500} autoComplete="off"
-               className={`min-h-14 flex-1 rounded-2xl border-2 border-slate-300 bg-white px-4 text-xl ${focusRing}`} />
+               placeholder={t.askPlaceholder} maxLength={500} autoComplete="off" readOnly={loading}
+               className={`min-h-14 min-w-0 flex-1 rounded-2xl border border-slate-400 bg-white px-4 text-lg ${focusRing}`} />
         <button type="submit" disabled={loading || !ready} className={`${button.dark} min-h-14 px-6 text-xl`}>
-          {loading ? t.asking : t.ask}
+          {t.ask}
         </button>
       </form>
       {error && <p role="alert" className="mt-3 text-red-700">{error}</p>}
       {/* Announced by screen readers when it arrives. */}
-      <div aria-live="polite">{answer && (
-        <p ref={answerRef} data-testid="answer" lang={urdu ? 'ur' : 'en'} dir={urdu ? 'rtl' : 'ltr'} className="mt-4 rounded-2xl bg-slate-100 p-5 text-xl">
+      <div role="status">{loading && <p className="mt-4 text-base text-slate-600">{t.asking}</p>}{answer && (
+        <p ref={answerRef} data-testid="answer" lang={urdu ? 'ur' : 'en'} dir={urdu ? 'rtl' : 'ltr'} className="mt-4 rounded-2xl bg-brand-50 p-4 text-lg whitespace-pre-line [overflow-wrap:anywhere]">
           {answer}
         </p>
       )}</div>

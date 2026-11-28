@@ -8,11 +8,10 @@ const YEAR = new Date().getFullYear() // read once at load, not on every render
 
 export function SiteFooter({ t }: { t: Strings }) {
   return (
-    <footer className="mt-20 border-t border-slate-900/10 bg-white">
-      <div className={`${container} grid gap-8 py-10 md:grid-cols-[1.4fr_1fr] md:items-start`}>
+    <footer className="border-t border-brand-900/10 bg-white">
+      <div className={`${container} grid gap-6 py-7 md:grid-cols-[1.4fr_1fr] md:items-start sm:py-9`}>
         <div className="space-y-3">
           <Logo />
-          <p className="text-lg text-slate-700">{t.footerTagline}</p>
           <p className="max-w-xl text-base text-slate-600">{t.footerDisclaimer}</p>
         </div>
         <div className="flex flex-col items-start gap-3 md:items-end">

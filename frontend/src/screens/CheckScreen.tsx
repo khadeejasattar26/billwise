@@ -38,8 +38,8 @@ export function CheckScreen({ t, photo, onBack, onRetake, onUse }: Props) {
           </p>
         )}
         {photo.issues && !hasIssues && (
-          <p className="flex items-center gap-3 rounded-2xl bg-brand-50 p-4 text-lg text-brand-900 ring-1 ring-brand-200">
-            <CheckIcon className="size-6 shrink-0 text-brand-700" /> {t.checkGood}
+          <p className="flex items-center gap-3 rounded-[var(--radius-card)] bg-emerald-50 p-4 text-lg text-emerald-950 ring-1 ring-emerald-200">
+            <CheckIcon className="size-6 shrink-0 text-emerald-700" /> {t.checkGood}
           </p>
         )}
         {hasIssues && (

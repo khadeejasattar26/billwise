@@ -36,7 +36,7 @@ function Change({ diff, t, format }: { diff: number | undefined; t: Strings; for
   const up = diff > 0
   const Icon = up ? ArrowUpIcon : ArrowDownIcon
   return (
-    <p className={`inline-flex items-center gap-1 text-base font-semibold ${up ? 'text-red-700' : 'text-brand-700'}`}>
+    <p className={`inline-flex items-center gap-1 text-base font-semibold ${up ? 'text-red-700' : 'text-emerald-700'}`}>
       <Icon className="size-4 shrink-0" />
       {up ? t.more(format(Math.abs(diff))) : t.less(format(Math.abs(diff)))}
     </p>

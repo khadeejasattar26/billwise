@@ -4,7 +4,7 @@ import { button, card } from '../components/ui/styles'
 import type { Strings } from '../i18n'
 
 /** One question, one big answer: replaces the small checkbox that sat above the upload button. */
-export function ConsentScreen({ t, onBack, onAgree }: { t: Strings; onBack: () => void; onAgree: () => void }) {
+export function ConsentScreen({ t, stored, onBack, onAgree }: { t: Strings; stored?: boolean; onBack: () => void; onAgree: () => void }) {
   return (
     <FlowLayout
       t={t}
@@ -21,7 +21,7 @@ export function ConsentScreen({ t, onBack, onAgree }: { t: Strings; onBack: () =
         {t.consentPoints.map((point, i) => (
           <li key={point} className="flex gap-3 text-lg">
             {i === 2 ? <ShieldIcon className="mt-1 size-6 shrink-0 text-brand-700" /> : <CheckIcon className="mt-1 size-6 shrink-0 text-brand-700" />}
-            <span>{point}</span>
+            <span>{i === 2 && stored ? t.consentStored : point}</span>
           </li>
         ))}
       </ul>

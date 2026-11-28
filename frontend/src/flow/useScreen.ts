@@ -17,10 +17,16 @@ export function useScreen() {
 
   const go = useCallback((next: Screen, options: { replace?: boolean } = {}) => {
     const url = hashFor(next)
-    if (options.replace) window.history.replaceState(null, '', url)
-    else window.history.pushState(null, '', url)
+    if (window.location.hash === url) return
+    if (options.replace) window.history.replaceState(window.history.state, '', url)
+    else window.history.pushState({ billwisePrevious: screenFromHash(window.location.hash) }, '', url)
     setScreen(next)
   }, [])
 
-  return { screen, go }
+  const back = useCallback((fallback: Screen) => {
+    if (window.history.state?.billwisePrevious) window.history.back()
+    else go(fallback, { replace: true })
+  }, [go])
+
+  return { screen, go, back }
 }

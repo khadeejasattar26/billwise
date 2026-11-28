@@ -4,18 +4,19 @@ import { ErrorPanel, LoadingPanel } from '../components/result/StatusPanels'
 import { button } from '../components/ui/styles'
 import type { Lang, Strings } from '../i18n'
 
-type Props = { lang: Lang; t: Strings; error: ApiError | null; onRetake: () => void; onRetry: () => void }
+type Props = { lang: Lang; t: Strings; error: ApiError | null; onBack: () => void; onRetake: () => void; onRetry: () => void }
 
-/** Waiting (with the pipeline's steps), or what went wrong and the two ways forward. */
-export function ReadingScreen({ lang, t, error, onRetake, onRetry }: Props) {
+const PHOTO_ERRORS = ['unsupported_file_type', 'file_too_large', 'unreadable_image', 'fields_not_found', 'not_a_bill']
+const WAIT_ERRORS = ['daily_limit', 'rate_limited', 'consent_required']
+
+export function ReadingScreen({ lang, t, error, onBack, onRetake, onRetry }: Props) {
   return (
-    <FlowLayout t={t} title={error ? t.errorTitle : t.readingTitle} actions={error && (
-      <>
-          <button type="button" onClick={onRetake} className={`${button.primary} min-h-16 w-full px-6 text-xl`}>{t.retake}</button>
-          {['llm_error', 'network_error', 'speech_failed', 'internal_error', 'unknown'].includes(error.code) && (
-            <button type="button" onClick={onRetry} className={`${button.secondary} min-h-14 w-full px-6 text-lg`}>{t.errors.default}</button>
-          )}
-      </>
+    <FlowLayout t={t} title={error ? t.errorTitle : t.readingTitle} onBack={onBack} actions={error && (
+      PHOTO_ERRORS.includes(error.code) ? (
+        <button type="button" onClick={onRetake} className={`${button.primary} min-h-16 w-full px-6 text-xl`}>{t.retake}</button>
+      ) : !WAIT_ERRORS.includes(error.code) && (
+        <button type="button" onClick={onRetry} className={`${button.primary} min-h-16 w-full px-6 text-xl`}>{t.retry}</button>
+      )
     )}>
       {!error && <LoadingPanel t={t} />}
       {error && <ErrorPanel error={error} t={t} lang={lang} />}

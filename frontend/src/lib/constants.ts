@@ -8,5 +8,5 @@ export const PROTECTED_LIMIT = 200
 export const FEEDBACK_URL: string = import.meta.env.VITE_FEEDBACK_URL ?? ''
 
 
-/** Every DISCO named on the page, in the order Pakistanis usually list them. */
-export const DISCO_CODES = ['LESCO', 'IESCO', 'FESCO', 'GEPCO', 'MEPCO', 'PESCO', 'HAZECO', 'TESCO', 'HESCO', 'SEPCO', 'QESCO', 'K-Electric'] as const
+/** Distribution companies that use the shared PITC bill format. */
+export const PITC_DISCO_CODES = ['LESCO', 'IESCO', 'FESCO', 'GEPCO', 'MEPCO', 'PESCO', 'HAZECO', 'TESCO', 'HESCO', 'SEPCO', 'QESCO'] as const

@@ -6,13 +6,13 @@ import { button } from '../ui/styles'
 /** The answer itself, first and largest, with the Listen button beside the heading. */
 export function PlainWords({ text, lang, t }: { text: string; lang: Lang; t: Strings }) {
   return (
-    <section aria-labelledby="plain-h" className="rounded-[var(--radius-card)] bg-brand-800 p-6 text-white shadow-[var(--shadow-card)] sm:p-8">
+    <section aria-labelledby="plain-h" className="rounded-[var(--radius-card)] bg-brand-900 p-4 text-white shadow-[var(--shadow-card)] sm:p-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 id="plain-h" className="text-2xl font-bold">{t.plainWords}</h2>
         {/* Keyed by text + language so switching language starts with fresh audio. */}
         <ListenButton key={lang + text} text={text} lang={lang} t={t} />
       </div>
-      <p className="text-xl ltr:leading-relaxed sm:text-2xl">{text}</p>
+      <p className="text-lg [overflow-wrap:anywhere] ltr:leading-relaxed sm:text-xl">{text}</p>
     </section>
   )
 }
@@ -23,7 +23,7 @@ function ListenButton({ text, lang, t }: { text: string; lang: Lang; t: Strings 
   return (
     <div>
       <button type="button" onClick={toggle} aria-pressed={playing}
-              className={`${button.light} px-5 py-2 text-lg`}>
+              className={`${button.light} min-h-12 px-4 py-1.5 text-base`}>
         {playing ? <StopIcon className="size-5" /> : <SpeakerIcon className="size-5" />}
         <span>{playing ? t.stop : state === 'loading' ? t.listenLoading : t.listen}</span>
       </button>

@@ -11,19 +11,28 @@ export function useBillAnalysis() {
   const [history, setHistory] = useState<Bill[]>([])
   const [sample, setSample] = useState(false)
 
-  async function analyze(file: File): Promise<boolean> {
+  function start() {
     setStatus('loading')
     setError(null)
-    setSample(false)
+  }
+
+  async function analyze(file: File, signal: AbortSignal): Promise<boolean> {
     try {
-      const uploaded = await uploadBill(file)
-      // With storage on, earlier uploads for the account feed the chart; otherwise just this bill.
-      const bills = uploaded.bill.public_id ? await listHistory(uploaded.bill.public_id) : [uploaded.bill]
+      const uploaded = await uploadBill(file, signal)
+      if (signal.aborted) return false
       setResult(uploaded)
-      setHistory(bills)
+      setHistory([uploaded.bill])
+      setSample(false)
       setStatus('success')
+      // Earlier bills are optional. A slow or failed history request must not hide this bill.
+      if (uploaded.bill.public_id) {
+        void listHistory(uploaded.bill.public_id, signal).then((bills) => {
+          if (!signal.aborted) setHistory((current) => current[0] === uploaded.bill ? bills : current)
+        }).catch(() => {})
+      }
       return true
     } catch (e) {
+      if (signal.aborted) return false
       setError(e instanceof ApiError ? e : new ApiError('unknown', ''))
       setStatus('error')
       return false
@@ -39,5 +48,5 @@ export function useBillAnalysis() {
     setStatus('success')
   }
 
-  return { status, error, result, history, sample, analyze, showSample }
+  return { status, error, result, history, sample, start, analyze, showSample }
 }

@@ -18,29 +18,27 @@ export function FlowLayout({ t, title, step, onBack, wide, actions, children }: 
     heading.current?.focus({ preventScroll: true })
   }, [])
   return (
-    <div className={`mx-auto w-full ${wide ? 'max-w-3xl' : 'max-w-xl'} px-4 pt-4 sm:pt-8 ${actions ? '' : 'pb-16'}`}>
-      <div className="flex min-h-12 items-center justify-between gap-3">
+    <div className={`mx-auto w-full ${wide ? 'max-w-3xl' : 'max-w-[40rem]'} px-4 pt-3 pb-8 sm:px-6 sm:pt-7 sm:pb-14`}>
+      {(onBack || step) && <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3">
         {onBack ? (
           <button type="button" onClick={onBack}
                   className={`-ms-2 inline-flex min-h-12 items-center gap-1 rounded-xl px-2 text-lg text-brand-800 hover:bg-brand-50 ${focusRing}`}>
             <BackIcon className="size-6 rtl:-scale-x-100" /> {t.back}
           </button>
         ) : <span />}
-        {step && <p className="text-base text-slate-600">{t.stepOf(step, STEP_COUNT)}</p>}
-      </div>
+        {step && <p className="rounded-full bg-brand-50 px-3 py-0.5 text-sm text-brand-800 ltr:font-semibold">{t.stepOf(step, STEP_COUNT)}</p>}
+      </div>}
       {step && (
         <div className="mt-2 flex gap-1.5" aria-hidden="true">
           {Array.from({ length: STEP_COUNT }, (_, i) => (
-            <span key={i} className={`h-1.5 flex-1 rounded-full ${i < step ? 'bg-brand-600' : 'bg-slate-200'}`} />
+            <span key={i} className={`h-1.5 flex-1 rounded-full ${i + 1 === step ? 'bg-brand-600' : i < step ? 'bg-brand-200' : 'bg-brand-900/10'}`} />
           ))}
         </div>
       )}
-      <h1 ref={heading} id="screen-title" tabIndex={-1} className="mt-3 text-3xl text-ink outline-none ltr:font-extrabold sm:text-4xl">{title}</h1>
-      <div className="mt-6 space-y-6">{children}</div>
-      {/* The screen's main action stays pinned to the bottom, so it is reachable on small phones and
-          with large text; it clears the iPhone home bar (safe-area inset). */}
+      <h1 ref={heading} id="screen-title" tabIndex={-1} className="mt-4 text-3xl text-ink outline-none ltr:font-extrabold ltr:tracking-tight sm:mt-5 sm:text-4xl">{title}</h1>
+      <div className="mt-4 space-y-4 sm:mt-6 sm:space-y-5">{children}</div>
       {actions && (
-        <div className="sticky bottom-0 -mx-4 mt-6 space-y-3 border-t border-slate-900/10 bg-paper/95 px-4 pt-3 backdrop-blur pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="step-actions -mx-4 mt-4 grid gap-2.5 border-t border-brand-900/10 bg-paper/95 px-4 pt-3 backdrop-blur sm:mx-0 sm:mt-5 sm:border-0 sm:px-0 sm:pt-0">
           {actions}
         </div>
       )}
