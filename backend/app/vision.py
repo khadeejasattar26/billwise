@@ -1,7 +1,9 @@
 """OpenCV cleanup that turns a phone photo of a bill into a clean black-on-white page for OCR."""
 
 import io
+import threading
 import warnings
+from contextlib import contextmanager
 
 import cv2
 import numpy as np
@@ -11,15 +13,35 @@ from PIL import Image, UnidentifiedImageError
 MIN_WIDTH = 1600
 # Skew beyond this is more likely a table edge than a tilted photo, so we leave it alone.
 MAX_DESKEW_DEGREES = 15.0
-# Largest image we decode. The 5 MB upload cap counts compressed bytes: a 0.28 MB white PNG can
+# Largest image we decode. The 5 MB upload cap counts compressed bytes: a 0.05 MB white PNG can
 # decode to 768 MB and kill the 512 MB container. The site shrinks photos to 2000 px (~4 MP), so
-# 40 MP rejects no real bill. Keep in step with OPENCV_IO_MAX_IMAGE_PIXELS in the Dockerfile.
-MAX_IMAGE_PIXELS = 40_000_000
+# 12 MP rejects no real bill. Keep in step with OPENCV_IO_MAX_IMAGE_PIXELS in the Dockerfile.
+MAX_IMAGE_PIXELS = 12_000_000
 ALLOWED_FORMATS = ("PNG", "JPEG")
+# A 12 MP photo needs ~36 MB decoded (plus the resized copy). Uploads arrive in parallel, so cap
+# how many are decoded at once; the rest wait their turn instead of adding up past 512 MB.
+DECODE_SLOTS = 2
+DECODE_WAIT_SECONDS = 30
+_decode_slots = threading.BoundedSemaphore(DECODE_SLOTS)
 
 
 class ImageDecodeError(ValueError):
     """The uploaded bytes are not an image OpenCV can read."""
+
+
+class ServerBusyError(RuntimeError):
+    """Every decode slot stayed taken for DECODE_WAIT_SECONDS."""
+
+
+@contextmanager
+def decode_slot(timeout: float = DECODE_WAIT_SECONDS):
+    """Hold one of the DECODE_SLOTS while decoding; wait up to `timeout` seconds for one to free up."""
+    if not _decode_slots.acquire(timeout=timeout):
+        raise ServerBusyError("The server is busy reading other photos. Please try again in a minute.")
+    try:
+        yield
+    finally:
+        _decode_slots.release()
 
 
 def check_header(image_bytes: bytes) -> None:
@@ -31,11 +53,11 @@ def check_header(image_bytes: bytes) -> None:
             with Image.open(io.BytesIO(image_bytes), formats=ALLOWED_FORMATS) as header:
                 width, height = header.size
     except Image.DecompressionBombError:  # Pillow's own guard, for images over ~179 million pixels
-        raise ImageDecodeError("The image is too large. Upload a photo under 40 megapixels.")
+        raise ImageDecodeError("The image is too large. Upload a photo under 12 megapixels.")
     except (UnidentifiedImageError, OSError, ValueError, SyntaxError):
         raise ImageDecodeError("The file is not a readable JPEG or PNG image.")
     if width * height > MAX_IMAGE_PIXELS:
-        raise ImageDecodeError("The image is too large. Upload a photo under 40 megapixels.")
+        raise ImageDecodeError("The image is too large. Upload a photo under 12 megapixels.")
 
 
 def decode(image_bytes: bytes) -> np.ndarray:

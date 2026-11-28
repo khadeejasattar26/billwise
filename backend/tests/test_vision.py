@@ -6,7 +6,10 @@ import numpy as np
 
 import pytest
 
-from app.vision import LLM_MAX_SIDE, MAX_IMAGE_PIXELS, ImageDecodeError, decode, shrink_for_llm
+from app import vision
+from app.vision import (
+    LLM_MAX_SIDE, MAX_IMAGE_PIXELS, ImageDecodeError, ServerBusyError, decode, decode_slot, shrink_for_llm,
+)
 
 
 def encode(width, height, ext=".png"):
@@ -36,10 +39,30 @@ def test_a_decompression_bomb_is_refused_before_decoding():
 
 
 def test_an_image_just_over_the_pixel_limit_is_refused():
-    # 7,000 x 6,000 = 42 MP: under Pillow's own bomb guard (~179 MP), so our limit must catch it.
-    assert 7_000 * 6_000 > MAX_IMAGE_PIXELS
+    # 4,000 x 3,001 is just over 12 MP: far under Pillow's own bomb guard (~179 MP), so our limit
+    # must catch it. 4,000 x 3,000 (exactly 12 MP) is decoded in the shrink test below.
+    width, height = 4_000, MAX_IMAGE_PIXELS // 4_000 + 1
     with pytest.raises(ImageDecodeError, match="too large"):
-        decode(png_bomb(7_000, 6_000))
+        decode(png_bomb(width, height))
+
+
+def test_only_decode_slots_photos_are_decoded_at_once():
+    # Hold every slot, as parallel uploads would: the next one waits, then gives up as "busy".
+    held = [vision._decode_slots.acquire(blocking=False) for _ in range(vision.DECODE_SLOTS)]
+    try:
+        assert all(held)
+        with pytest.raises(ServerBusyError):
+            with decode_slot(timeout=0.01):
+                pass
+    finally:
+        for _ in held:
+            vision._decode_slots.release()
+
+
+def test_a_free_slot_lets_the_photo_through_and_is_given_back():
+    for _ in range(vision.DECODE_SLOTS + 1):  # more rounds than slots: each one is released
+        with decode_slot(timeout=0.01):
+            assert decode(encode(300, 200)).shape == (200, 300, 3)
 
 
 @pytest.mark.parametrize("ext", [".bmp", ".tiff", ".webp"])

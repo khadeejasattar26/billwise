@@ -152,11 +152,15 @@ def upload_bill(request: Request, image: UploadFile = File(...), consent: bool =
     check_limit(request, "upload", UPLOADS_PER_HOUR, UPLOADS_PER_DAY_TOTAL)
 
     try:
-        llm_image, llm_media_type = vision.shrink_for_llm(image_bytes, MEDIA_TYPES[suffix])
-        # OCR_MODE=off skips OpenCV + Tesseract: on a 0.1-CPU free host they took 1-6 minutes per photo.
-        ocr_text = ocr.read_text(vision.clean(image_bytes)) if OCR_MODE != "off" else ""
+        # Only DECODE_SLOTS photos are decoded at once, so parallel uploads can't add up past 512 MB.
+        with vision.decode_slot():
+            llm_image, llm_media_type = vision.shrink_for_llm(image_bytes, MEDIA_TYPES[suffix])
+            # OCR_MODE=off skips OpenCV + Tesseract: on a 0.1-CPU free host they took 1-6 minutes per photo.
+            ocr_text = ocr.read_text(vision.clean(image_bytes)) if OCR_MODE != "off" else ""
     except vision.ImageDecodeError as exc:
         raise ApiError(400, "unreadable_image", str(exc))
+    except vision.ServerBusyError as exc:
+        raise ApiError(503, "server_busy", str(exc))
 
     previous_bill = db.previous_bill if STORAGE != "off" else (lambda account, month: None)
     graph = build_graph(llm, previous_bill)

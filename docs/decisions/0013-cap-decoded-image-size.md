@@ -1,6 +1,6 @@
 # 0013: Refuse images over 40 megapixels before decoding them
 - Date: 2026-11-28
-- Status: Accepted
+- Status: Accepted (amended by [0014](0014-decode-at-most-two-photos-at-once.md): limit lowered to 12 MP, at most two decodes at once)
 - Related: `backend/app/vision.py` (`check_header`, `MAX_IMAGE_PIXELS`), `Dockerfile` (`OPENCV_IO_MAX_IMAGE_PIXELS`), `backend/tests/test_vision.py`
 
 **Context:** The 5 MB upload cap counts compressed bytes. A 0.05 MB white PNG of 16,000 x 16,000 px made OpenCV allocate about 900 MB, enough to kill the 512 MB Render container and take the site down; anyone can send one.

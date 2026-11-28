@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from app import db
+from app import db, vision
 from app import main as app_main
 from app.main import app, get_llm
 from app.schemas import Explanation
@@ -56,6 +56,18 @@ def test_upload_without_consent_is_refused(client):
     response = http.post("/bills", files={"image": ("bill.png", png(), "image/png")})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "consent_required"
+
+
+def test_an_upload_gets_503_server_busy_when_every_decode_slot_stays_taken(client, monkeypatch):
+    http, _ = client
+
+    def busy(timeout=None):
+        raise vision.ServerBusyError("The server is busy reading other photos. Please try again in a minute.")
+
+    monkeypatch.setattr(vision, "decode_slot", busy)
+    response = http.post("/bills", files={"image": ("bill.png", png(), "image/png")}, data={"consent": "true"})
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "server_busy"
 
 
 def test_with_storage_off_an_upload_is_explained_and_saved_nowhere(client):

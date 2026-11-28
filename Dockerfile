@@ -38,10 +38,10 @@ ENV PYTHONUNBUFFERED=1 \
     STORAGE=off \
     TRUSTED_CLIENT_IP_HEADER=cf-connecting-ip \
     PORT=10000
-# OpenCV refuses to decode images over 40 megapixels (its default is ~1 billion). Without this,
-# a 0.28 MB PNG of 16,000 x 16,000 px decodes to 768 MB and the 512 MB container is killed.
+# OpenCV refuses to decode images over 12 megapixels (its default is ~1 billion). Without this,
+# a 0.05 MB PNG of 16,000 x 16,000 px decodes to 768 MB and the 512 MB container is killed.
 # Same number as MAX_IMAGE_PIXELS in backend/app/vision.py, which checks the header first.
-ENV OPENCV_IO_MAX_IMAGE_PIXELS=40000000
+ENV OPENCV_IO_MAX_IMAGE_PIXELS=12000000
 USER user
 EXPOSE 10000
 # No --proxy-headers: uvicorn would take the visitor's address from the (fakeable) first
