@@ -1,21 +1,47 @@
 """OpenCV cleanup that turns a phone photo of a bill into a clean black-on-white page for OCR."""
 
+import io
+import warnings
+
 import cv2
 import numpy as np
+from PIL import Image, UnidentifiedImageError
 
 # Tesseract reads best when text is roughly 30 px tall; small photos are scaled up to this width.
 MIN_WIDTH = 1600
 # Skew beyond this is more likely a table edge than a tilted photo, so we leave it alone.
 MAX_DESKEW_DEGREES = 15.0
+# Largest image we decode. The 5 MB upload cap counts compressed bytes: a 0.28 MB white PNG can
+# decode to 768 MB and kill the 512 MB container. The site shrinks photos to 2000 px (~4 MP), so
+# 40 MP rejects no real bill. Keep in step with OPENCV_IO_MAX_IMAGE_PIXELS in the Dockerfile.
+MAX_IMAGE_PIXELS = 40_000_000
+ALLOWED_FORMATS = ("PNG", "JPEG")
 
 
 class ImageDecodeError(ValueError):
     """The uploaded bytes are not an image OpenCV can read."""
 
 
+def check_header(image_bytes: bytes) -> None:
+    """Refuse non-PNG/JPEG files and oversized images from the header alone, before any pixel is decoded."""
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+            # Image.open reads only the header; the pixels stay compressed.
+            with Image.open(io.BytesIO(image_bytes), formats=ALLOWED_FORMATS) as header:
+                width, height = header.size
+    except Image.DecompressionBombError:  # Pillow's own guard, for images over ~179 million pixels
+        raise ImageDecodeError("The image is too large. Upload a photo under 40 megapixels.")
+    except (UnidentifiedImageError, OSError, ValueError, SyntaxError):
+        raise ImageDecodeError("The file is not a readable JPEG or PNG image.")
+    if width * height > MAX_IMAGE_PIXELS:
+        raise ImageDecodeError("The image is too large. Upload a photo under 40 megapixels.")
+
+
 def decode(image_bytes: bytes) -> np.ndarray:
     if not image_bytes:
         raise ImageDecodeError("The file is empty.")
+    check_header(image_bytes)
     try:
         image = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
     except cv2.error:  # OpenCV raises (rather than returning None) for some malformed input

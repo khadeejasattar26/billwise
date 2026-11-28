@@ -14,3 +14,4 @@
 | [0010](0010-public-site-stores-nothing.md) | The public site stores nothing; uploads need explicit consent | Accepted |
 | [0011](0011-frontend-product-page-and-tests.md) | Frontend as a product page, split by feature, with Vitest tests | Accepted, layout superseded by 0012 |
 | [0012](0012-guided-flow-one-thing-per-screen.md) | Replace the long result page with a guided flow, one thing per screen | Accepted |
+| [0013](0013-cap-decoded-image-size.md) | Refuse images over 40 megapixels before decoding them | Accepted |
